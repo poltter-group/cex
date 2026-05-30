@@ -1,0 +1,6 @@
+{
+  "name": "CEXPRO Exchange",
+  "description": "Professional crypto currency spot, memecoin, and commodities exchange featuring advanced trading controls, analytical charts, secure API keys, and a comprehensive administrator desk.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

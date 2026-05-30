@@ -1,0 +1,299 @@
+{
+  "entities": {
+    "UserPreference": {
+      "title": "User Preference",
+      "description": "User specific application preferences",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who owns these preferences"
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["dark", "light", "system"]
+        },
+        "createdAt": {
+          "type": "timestamp"
+        },
+        "updatedAt": {
+          "type": "timestamp"
+        }
+      },
+      "required": ["userId", "theme", "createdAt", "updatedAt"]
+    },
+    "ApiKey": {
+      "title": "API Key",
+      "description": "User API keys",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "permissions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": {
+          "type": "timestamp"
+        }
+      },
+      "required": ["userId", "name", "key", "permissions", "createdAt"]
+    },
+    "User": {
+      "title": "User Profile",
+      "description": "Directory of registered user roles and trading balances",
+      "type": "object",
+      "properties": {
+         "userId": { "type": "string" },
+         "email": { "type": "string" },
+         "role": { "type": "string", "enum": ["user", "admin"] },
+         "status": { "type": "string", "enum": ["active", "suspended"] },
+         "balanceUSD": { "type": "number" },
+         "balanceBTC": { "type": "number" },
+         "createdAt": { "type": "timestamp" }
+      },
+      "required": ["userId", "email", "role", "status", "balanceUSD", "balanceBTC", "createdAt"]
+    },
+    "Order": {
+      "title": "Order Execution",
+      "description": "User placed trading order documents",
+      "type": "object",
+      "properties": {
+         "userId": { "type": "string" },
+         "pair": { "type": "string" },
+         "category": { "type": "string", "enum": ["Crypto", "Memecoin", "Spot"] },
+         "type": { "type": "string", "enum": ["Limit", "Market", "Stop-limit"] },
+         "side": { "type": "string", "enum": ["Buy", "Sell"] },
+         "price": { "type": "number" },
+         "amount": { "type": "number" },
+         "total": { "type": "number" },
+         "tp": { "type": "number" },
+         "sl": { "type": "number" },
+         "status": { "type": "string", "enum": ["Open", "Filled", "Canceled"] },
+         "createdAt": { "type": "timestamp" }
+      },
+      "required": ["userId", "pair", "category", "type", "side", "price", "amount", "total", "status", "createdAt"]
+    },
+    "SupportTicket": {
+      "title": "Support Ticket",
+      "description": "Interactive system logs for client questions and admin solutions",
+      "type": "object",
+      "properties": {
+         "ticketId": { "type": "string" },
+         "userId": { "type": "string" },
+         "userEmail": { "type": "string" },
+         "subject": { "type": "string" },
+         "status": { "type": "string", "enum": ["Open", "In Progress", "Resolved"] },
+         "messages": {
+           "type": "array",
+           "items": { "type": "object" }
+         },
+         "createdAt": { "type": "timestamp" },
+         "updatedAt": { "type": "timestamp" }
+      },
+      "required": ["ticketId", "userId", "userEmail", "subject", "status", "messages", "createdAt", "updatedAt"]
+    },
+    "SystemConfig": {
+      "title": "System Parameters",
+      "description": "Global trading configurations",
+      "type": "object",
+      "properties": {
+         "makerFeePercent": { "type": "number" },
+         "takerFeePercent": { "type": "number" },
+         "maxLeverage": { "type": "number" },
+         "updatedAt": { "type": "timestamp" }
+      },
+      "required": ["makerFeePercent", "takerFeePercent", "maxLeverage", "updatedAt"]
+    },
+    "Trade": {
+      "title": "Completed Trade",
+      "description": "Executed trade records from filled orders",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "orderId": { "type": "string" },
+        "pair": { "type": "string" },
+        "side": { "type": "string", "enum": ["Buy", "Sell"] },
+        "price": { "type": "number" },
+        "amount": { "type": "number" },
+        "total": { "type": "number" },
+        "fee": { "type": "number" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["userId", "orderId", "pair", "side", "price", "amount", "total", "fee", "createdAt"]
+    },
+    "Post": {
+      "title": "Community Post",
+      "description": "Social feed user post for Square component",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "handle": { "type": "string" },
+        "content": { "type": "string" },
+        "likes": { "type": "number" },
+        "likesUsers": { "type": "array", "items": { "type": "string" } },
+        "retweets": { "type": "number" },
+        "replies": { "type": "number" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["postId", "userId", "name", "handle", "content", "likes", "likesUsers", "retweets", "replies", "createdAt"]
+    },
+    "Notification": {
+      "title": "Real-time Notification",
+      "description": "Real-time in-app notification message",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    },
+    "UserTask": {
+      "title": "Completed Task",
+      "description": "User checking progress on crypto earn quests",
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "string" },
+        "title": { "type": "string" },
+        "rewardUSD": { "type": "number" },
+        "completedAt": { "type": "timestamp" }
+      },
+      "required": ["taskId", "title", "rewardUSD", "completedAt"]
+    },
+    "CustomTrader": {
+      "title": "Custom Lead Trader",
+      "description": "Custom lead traders available for copy trading",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "tag": { "type": "string" },
+        "roi": { "type": "number" },
+        "followers": { "type": "number" },
+        "pnl": { "type": "string" },
+        "winRate": { "type": "string" },
+        "avatarInitials": { "type": "string" }
+      },
+      "required": ["userId", "name", "tag", "roi", "followers", "pnl", "winRate", "avatarInitials"]
+    },
+    "CopiedPosition": {
+      "title": "Copied Position",
+      "description": "User copied trading position",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "traderName": { "type": "string" },
+        "investmentAmount": { "type": "number" },
+        "mode": { "type": "string" },
+        "tp": { "type": "number" },
+        "sl": { "type": "number" },
+        "initialRoy": { "type": "number" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["userId", "traderName", "investmentAmount", "mode", "tp", "sl", "initialRoy", "createdAt"]
+    },
+    "EarnSubscription": {
+      "title": "Earn Subscription",
+      "description": "Staking subscriptions for active earning products",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "asset": { "type": "string" },
+        "amount": { "type": "number" },
+        "apr": { "type": "number" },
+        "term": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "status": { "type": "string" }
+      },
+      "required": ["userId", "asset", "amount", "apr", "term", "createdAt", "status"]
+    },
+    "WalletTransaction": {
+      "title": "Wallet Transaction",
+      "description": "Dynamic ledger of deposits, buy operations, sell withdrawals, and swaps",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string" },
+        "asset": { "type": "string" },
+        "amount": { "type": "number" },
+        "fee": { "type": "number" },
+        "txId": { "type": "string" },
+        "network": { "type": "string" },
+        "destinationAddress": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["userId", "type", "asset", "amount", "fee", "txId", "network", "destinationAddress", "createdAt"]
+    }
+  },
+  "firestore": {
+    "user_preferences/{userId}": {
+      "schema": "UserPreference",
+      "description": "User preferences documents"
+    },
+    "api_keys/{keyId}": {
+      "schema": "ApiKey",
+      "description": "User generated API keys"
+    },
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Global user accounts profile details"
+    },
+    "orders/{orderId}": {
+      "schema": "Order",
+      "description": "Spot exchange placing ledger"
+    },
+    "trades/{tradeId}": {
+      "schema": "Trade",
+      "description": "List of completed trades per executed order"
+    },
+    "support_tickets/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "Client live support queries"
+    },
+    "system_config/global": {
+      "schema": "SystemConfig",
+      "description": "System-wide parameters managed by administrators"
+    },
+    "posts/{postId}": {
+      "schema": "Post",
+      "description": "Social posts made by users on Square"
+    },
+    "notifications/{notifId}": {
+      "schema": "Notification",
+      "description": "Real-time push notifications"
+    },
+    "users/{userId}/tasks/{taskId}": {
+      "schema": "UserTask",
+      "description": "User completed task history tracking for Crypto Earn"
+    },
+    "custom_traders/{traderId}": {
+      "schema": "CustomTrader",
+      "description": "Custom lead traders"
+    },
+    "copied_positions/{positionId}": {
+      "schema": "CopiedPosition",
+      "description": "User copied trading positions"
+    },
+    "earn_subscriptions/{subId}": {
+      "schema": "EarnSubscription",
+      "description": "User earn subscriptions staking history"
+    },
+    "wallet_transactions/{txId}": {
+      "schema": "WalletTransaction",
+      "description": "User ledger of transactions and swaps"
+    }
+  }
+}

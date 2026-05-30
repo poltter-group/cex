@@ -1,0 +1,332 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Catch-All Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Core Primitive Support Helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Validation Blueprint Helpers
+    function isValidUserPreference(data) {
+      return data.keys().hasAll(['userId', 'theme', 'createdAt', 'updatedAt']) 
+        && data.keys().size() == 4
+        && data.userId == request.auth.uid
+        && data.theme is string && data.theme.size() <= 10 && data.theme in ['dark', 'light', 'system']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidApiKey(data) {
+      return data.keys().hasAll(['userId', 'name', 'key', 'permissions', 'createdAt'])
+        && data.keys().size() == 5
+        && data.userId == request.auth.uid
+        && data.name is string && data.name.size() <= 50
+        && data.key is string && data.key.size() <= 100
+        && data.permissions is list && data.permissions.size() <= 10 && data.permissions.size() > 0 && data.permissions[0] is string
+        && data.createdAt is timestamp;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'email', 'role', 'status', 'balanceUSD', 'balanceBTC', 'createdAt'])
+        && data.keys().size() >= 7 && data.keys().size() <= 20
+        && data.userId == request.auth.uid
+        && data.email is string && data.email.size() <= 100
+        && data.role is string && data.role in ['user', 'admin']
+        && data.status is string && data.status in ['active', 'suspended']
+        && data.balanceUSD is number
+        && data.balanceBTC is number
+        && (!('balanceETH' in data) || data.balanceETH is number)
+        && (!('balanceSOL' in data) || data.balanceSOL is number)
+        && (!('balanceXRP' in data) || data.balanceXRP is number)
+        && (!('balanceDOGE' in data) || data.balanceDOGE is number)
+        && (!('balanceTRX' in data) || data.balanceTRX is number)
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1000))
+        && (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 100))
+        && (!('kycStatus' in data) || (data.kycStatus is string && data.kycStatus in ['unverified', 'pending', 'verified']))
+        && (!('verified' in data) || data.verified is bool)
+        && (!('antiPhishingCode' in data) || (data.antiPhishingCode is string && data.antiPhishingCode.size() <= 100))
+        && (!('googleAuthEnabled' in data) || data.googleAuthEnabled is bool)
+        && (!('passkeyEnabled' in data) || data.passkeyEnabled is bool)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['userId', 'pair', 'category', 'type', 'side', 'price', 'amount', 'total', 'status', 'createdAt'])
+        && data.keys().size() >= 10 && data.keys().size() <= 12
+        && data.userId == request.auth.uid
+        && data.pair is string && data.pair.size() <= 15
+        && data.category is string && data.category in ['Crypto', 'Memecoin', 'Spot']
+        && data.type is string && data.type in ['Limit', 'Market', 'Stop-limit']
+        && data.side is string && data.side in ['Buy', 'Sell']
+        && data.price is number && data.price >= 0
+        && data.amount is number && data.amount >= 0
+        && data.total is number && data.total >= 0
+        && (!('tp' in data) || data.tp is number)
+        && (!('sl' in data) || data.sl is number)
+        && data.status is string && data.status in ['Open', 'Filled', 'Canceled']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTrade(data) {
+      return data.keys().hasAll(['userId', 'orderId', 'pair', 'side', 'price', 'amount', 'total', 'fee', 'createdAt'])
+        && data.keys().size() == 9
+        && data.userId == request.auth.uid
+        && data.orderId is string && data.orderId.size() <= 128
+        && data.pair is string && data.pair.size() <= 15
+        && data.side is string && data.side in ['Buy', 'Sell']
+        && data.price is number && data.price >= 0
+        && data.amount is number && data.amount >= 0
+        && data.total is number && data.total >= 0
+        && data.fee is number && data.fee >= 0
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSupportTicket(data) {
+      return data.keys().hasAll(['ticketId', 'userId', 'userEmail', 'subject', 'status', 'messages', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 8
+        && data.ticketId is string && data.ticketId.size() <= 128
+        && data.userId == request.auth.uid
+        && data.userEmail is string && data.userEmail.size() <= 100
+        && data.subject is string && data.subject.size() <= 150
+        && data.status is string && data.status in ['Open', 'In Progress', 'Resolved']
+        && data.messages is list && data.messages.size() <= 100
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['postId', 'userId', 'name', 'handle', 'content', 'likes', 'likesUsers', 'retweets', 'replies', 'createdAt'])
+        && data.keys().size() == 10
+        && data.postId is string && data.postId.size() <= 128
+        && data.userId == request.auth.uid
+        && data.name is string && data.name.size() <= 50
+        && data.handle is string && data.handle.size() <= 50
+        && data.content is string && data.content.size() <= 2000
+        && data.likes is number && data.likes >= 0
+        && data.likesUsers is list && data.likesUsers.size() <= 5000
+        && data.retweets is number && data.retweets >= 0
+        && data.replies is number && data.replies >= 0
+        && data.createdAt is timestamp;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['userId', 'title', 'message', 'type', 'read', 'createdAt'])
+        && data.keys().size() == 6
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() <= 100
+        && data.message is string && data.message.size() <= 500
+        && data.type is string && data.type.size() <= 20
+        && data.read is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidCustomTrader(data) {
+      return data.keys().hasAll(['userId', 'name', 'tag', 'roi', 'followers', 'pnl', 'winRate', 'avatarInitials'])
+        && data.keys().size() == 8
+        && data.userId == request.auth.uid
+        && data.name is string && data.name.size() <= 100
+        && data.tag is string && data.tag.size() <= 50
+        && data.roi is number
+        && data.followers is number
+        && data.pnl is string && data.pnl.size() <= 20
+        && data.winRate is string && data.winRate.size() <= 10
+        && data.avatarInitials is string && data.avatarInitials.size() <= 10;
+    }
+
+    function isValidCopiedPosition(data) {
+      return data.keys().hasAll(['userId', 'traderName', 'investmentAmount', 'mode', 'tp', 'sl', 'initialRoy', 'createdAt'])
+        && data.keys().size() == 8
+        && data.userId == request.auth.uid
+        && data.traderName is string && data.traderName.size() <= 100
+        && data.investmentAmount is number && data.investmentAmount >= 0
+        && data.mode is string && data.mode.size() <= 50
+        && data.tp is number
+        && data.sl is number
+        && (data.initialRoy is number || data.initialRoy is string)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidEarnSubscription(data) {
+      return data.keys().hasAll(['userId', 'asset', 'amount', 'apr', 'term', 'createdAt', 'status'])
+        && data.keys().size() == 7
+        && data.userId == request.auth.uid
+        && data.asset is string && data.asset.size() <= 10
+        && data.amount is number && data.amount >= 0
+        && (data.apr is number || data.apr is string)
+        && data.term is string && data.term.size() <= 30
+        && data.createdAt is timestamp
+        && data.status is string && data.status.size() <= 20;
+    }
+
+    function isValidWalletTransaction(data) {
+      return data.keys().hasAll(['userId', 'type', 'asset', 'amount', 'fee', 'txId', 'network', 'destinationAddress', 'createdAt'])
+        && data.keys().size() >= 9 && data.keys().size() <= 13
+        && data.userId == request.auth.uid
+        && data.type is string && data.type.size() <= 30
+        && data.asset is string && data.asset.size() <= 20
+        && data.amount is number && data.amount >= 0
+        && data.fee is number && data.fee >= 0
+        && data.txId is string && data.txId.size() <= 128
+        && data.network is string && data.network.size() <= 100
+        && data.destinationAddress is string && data.destinationAddress.size() <= 200
+        && (!('status' in data) || data.status is string)
+        && (!('fiatPaid' in data) || data.fiatPaid is number)
+        && (!('fiatCurrency' in data) || data.fiatCurrency is string)
+        && (!('fiatReceived' in data) || data.fiatReceived is number)
+        && data.createdAt is timestamp;
+    }
+
+    // Collection Level Rules matches
+    match /user_preferences/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId && isValidId(userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid && request.auth.uid == userId;
+      allow create: if isSignedIn() 
+        && request.auth.uid == userId 
+        && isValidId(userId)
+        && isValidUserPreference(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() 
+        && request.auth.uid == userId 
+        && isValidId(userId)
+        && isValidUserPreference(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['theme', 'updatedAt'])
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(userId);
+    }
+
+    match /api_keys/{keyId} {
+      allow get: if isSignedIn() && isValidId(keyId) && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && isValidId(keyId)
+        && isValidApiKey(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false; // Immutable api keys
+      allow delete: if isSignedIn() && isValidId(keyId) && resource.data.userId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    match /orders/{orderId} {
+      allow read, write: if true;
+    }
+
+    match /trades/{tradeId} {
+      allow read, write: if true;
+    }
+
+    match /support_tickets/{ticketId} {
+      allow get: if isSignedIn() && isValidId(ticketId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && isValidId(ticketId)
+        && isValidSupportTicket(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(ticketId)
+        && (
+          // Users adding messages to tickets
+          (resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['messages', 'updatedAt']) && incoming().updatedAt == request.time) ||
+          // Admin response
+          isAdmin()
+        );
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    match /system_config/{configId} {
+      allow get: if isSignedIn();
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    match /posts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(postId) && isValidPost(incoming()) && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && isValidId(postId) && (
+        // Creator updates their content (unlikely, but let's allow content/updatedAt)
+        (resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['content']) && incoming().userId == existing().userId) ||
+        // Anyone can increment/decrement likes/likesUsers list, retweets and replies
+        (incoming().diff(existing()).affectedKeys().hasAny(['likes', 'likesUsers', 'retweets', 'replies']) && incoming().userId == existing().userId && incoming().createdAt == existing().createdAt)
+      );
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /notifications/{notifId} {
+      allow get: if isSignedIn() && isValidId(notifId) && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(notifId) && isValidNotification(incoming()) && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && isValidId(notifId) && resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['read']) && incoming().read is bool;
+      allow delete: if isSignedIn() && isValidId(notifId) && resource.data.userId == request.auth.uid;
+    }
+
+    match /users/{userId}/tasks/{taskId} {
+      allow get, list: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId
+        && incoming().keys().hasAll(['taskId', 'title', 'rewardUSD', 'completedAt'])
+        && incoming().keys().size() == 4
+        && incoming().taskId == taskId
+        && incoming().title is string && incoming().title.size() <= 100
+        && incoming().rewardUSD is number && incoming().rewardUSD >= 0
+        && incoming().completedAt is timestamp;
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /custom_traders/{traderId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(traderId) && isValidCustomTrader(incoming());
+      allow update: if isSignedIn() && isValidId(traderId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && isValidId(traderId) && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /copied_positions/{positionId} {
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(positionId) && isValidCopiedPosition(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
+      allow update: if false; // Positions are immutable, closed by deleting
+      allow delete: if isSignedIn() && isValidId(positionId) && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /earn_subscriptions/{subId} {
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(subId) && isValidEarnSubscription(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
+      allow update: if isSignedIn() && isValidId(subId) && (resource.data.userId == request.auth.uid || isAdmin()) && isValidEarnSubscription(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isSignedIn() && isValidId(subId) && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /wallet_transactions/{txId} {
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(txId) && isValidWalletTransaction(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
+      allow update: if false; // Ledger entries are strictly immutable
+      allow delete: if isSignedIn() && isAdmin();
+    }
+  }
+}

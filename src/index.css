@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Institutional Noir Palette */
+  --color-dark-bg: #121317;
+  --color-dark-surface: #1a1b1f;
+  --color-dark-surface-alt: #1e1f23;
+  --color-dark-surface-highest: #343539;
+  --color-dark-border: #343539;
+  --color-dark-border-subtle: #1e1f23;
+  
+  --color-dark-text: #e3e2e7;
+  --color-dark-text-muted: #8e9192;
+  
+  --color-primary-500: #ffffff;
+  --color-primary-600: #e2e2e2;
+
+  --color-buy: #10B981;
+  --color-sell: #F43F5E;
+
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* Typography Scales */
+  --text-display-lg: 72px;
+  --text-display-lg--line-height: 80px;
+  --text-display-lg--letter-spacing: -0.04em;
+  --text-headline-xl: 48px;
+  --text-headline-xl--line-height: 56px;
+  --text-headline-xl--letter-spacing: -0.02em;
+  --text-headline-md: 32px;
+  --text-headline-md--line-height: 40px;
+  --text-headline-md--letter-spacing: -0.01em;
+
+  /* Shapes */
+  --radius-sm: 0.25rem;
+  --radius: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+  
+  /* Shadow removal */
+  --shadow-sm: none;
+  --shadow: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-2xl: none;
+  --shadow-inner: none;
+}
+
+html {
+  font-size: 13px; /* Scales down all rem-based sizes (Tailwind p-*, m-*, text-*, etc) to feel like a high-density desktop app */
+}
+
+body {
+  @apply bg-dark-bg text-dark-text font-sans antialiased;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-surface-highest rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-[#444748];
+}
+
+/* Hide spin-button/arrows for numeric inputs in premium layouts */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+.clip-hexagon {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
