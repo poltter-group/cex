@@ -11,43 +11,7 @@ export function RecentTrades({ activePair = 'BTC' }: { activePair?: string }) {
   };
   const currentBasePrice = basePrices[activePair] || 100;
 
-  const [mockTrades, setMockTrades] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!currentBasePrice) return;
-    const initial = [];
-    for (let i = 0; i < 15; i++) {
-      const isBuy = Math.random() > 0.5;
-      const variation = 1 + (Math.random() * 0.001 - 0.0005);
-      const tradePrice = currentBasePrice * variation;
-      const now = new Date();
-      now.setSeconds(now.getSeconds() - i * 4);
-      const timeStr = now.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      initial.push({
-        id: `mock_t_${Date.now() - i * 10000}`,
-        price: tradePrice.toFixed(currentBasePrice > 10 ? 2 : 5),
-        amount: (Math.random() * 1.5 + 0.02).toFixed(4),
-        time: timeStr,
-        type: isBuy ? 'buy' : 'sell',
-        isReal: false
-      });
-    }
-    setMockTrades(initial);
-  }, [activePair, currentBasePrice]);
-
-  useEffect(() => {
-    if (!currentBasePrice) return;
-    const isBuy = Math.random() > 0.5;
-    const item = {
-      id: `mock_t_live_${Date.now()}`,
-      price: (currentBasePrice * (1 + (Math.random() * 0.0004 - 0.0002))).toFixed(currentBasePrice > 10 ? 2 : 5),
-      amount: (Math.random() * 1.2 + 0.01).toFixed(4),
-      time: new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      type: isBuy ? 'buy' : 'sell',
-      isReal: false
-    };
-    setMockTrades(prev => [item, ...prev].slice(0, 30));
-  }, [currentBasePrice]);
+  const mockTrades: any[] = [];
 
   useEffect(() => {
     const q = query(

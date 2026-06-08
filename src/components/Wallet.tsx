@@ -218,15 +218,12 @@ export function Wallet() {
     excludedSymbols: string[];
     includedSymbols: string[];
   }[]>(() => {
-    const saved = localStorage.getItem('cexpro_custom_wallets_v2');
+    const saved = localStorage.getItem('cexpro_custom_wallets_v3');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return [
       { id: 'MAIN', name: 'Main Wallet', visible: true, excludedSymbols: [], includedSymbols: ['BTC', 'ETH', 'USDT', 'SOL'] },
-      { id: 'SPOT', name: 'Forex Spot', visible: true, excludedSymbols: [], includedSymbols: [] },
-      { id: 'CRYPTO', name: 'Crypto', visible: true, excludedSymbols: ['DOGE'], includedSymbols: [] },
-      { id: 'MEMECOIN', name: 'Memecoin', visible: true, excludedSymbols: [], includedSymbols: ['DOGE', 'TRX'] },
     ];
   });
 
@@ -235,7 +232,7 @@ export function Wallet() {
   const [newWalletAssets, setNewWalletAssets] = useState<string[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('cexpro_custom_wallets_v2', JSON.stringify(customWallets));
+    localStorage.setItem('cexpro_custom_wallets_v3', JSON.stringify(customWallets));
   }, [customWallets]);
 
   useEffect(() => {
@@ -257,7 +254,7 @@ export function Wallet() {
   const [depAsset, setDepAsset] = useState('BTC');
   const [depNetworkIdx, setDepNetworkIdx] = useState(0);
   const [copiedAddress, setCopiedAddress] = useState(false);
-  const [simulatedDepAmount, setSimulatedDepAmount] = useState('');
+  const [depAmount, setDepAmount] = useState('');
   const [depSuccessMsg, setDepSuccessMsg] = useState('');
   
   // Withdrawal States
@@ -374,7 +371,7 @@ export function Wallet() {
     setTimeout(() => setCopiedAddress(false), 2000);
   };
 
-  // Simulated live prices reference
+  // Live prices reference
   const getAssetPrice = (sym: string): number => {
     return livePrices[sym] !== undefined ? livePrices[sym] : 1;
   };
@@ -425,10 +422,10 @@ export function Wallet() {
 
   const { totalUSD, totalBTC } = getPortfolioValues();
 
-  // Handle Real/Simulated Deposit via NowPayments
+  // Handle Real Deposit via NowPayments
   const handleProcessDeposit = async () => {
     setDepSuccessMsg('');
-    const amt = parseFloat(simulatedDepAmount);
+    const amt = parseFloat(depAmount);
     if (isNaN(amt) || amt <= 0) {
       alert("Enter a valid deposit volume.");
       return;
@@ -462,7 +459,7 @@ export function Wallet() {
           userId: user.uid,
           type: 'DEPOSIT',
           asset: depAsset,
-          amount: data.isMock ? amt : Number(data.pay_amount || amt),
+          amount: Number(data.pay_amount || amt),
           fee: 0,
           txId: data.payment_id,
           network: network,
@@ -474,21 +471,10 @@ export function Wallet() {
         // Open NowPayments Invoice or simulate
         window.open(data.invoice_url, '_blank');
         
-        if (data.isMock) {
-           setDepSuccessMsg(`Sandbox Mode: Invoice generated! (Simulating payment...)`);
-           // Simulate webhook callback after 3 seconds for sandbox mode
-           setTimeout(async () => {
-             //@ts-ignore
-             await updateWalletBalance('MAIN', depAsset, amt);
-             setDepSuccessMsg(`Sandbox Mode: Deposit confirmed! ${amt} ${depAsset} credited to MAIN balance.`);
-             fetchTxns();
-           }, 5000);
-        } else {
-           setDepSuccessMsg(`Invoice generated! Please complete the payment. Your balance will be credited automatically once confirmed on-chain.`);
-           fetchTxns();
-        }
+        setDepSuccessMsg(`Invoice generated! Please complete the payment. Your balance will be credited automatically once confirmed on-chain.`);
+        fetchTxns();
         
-        setSimulatedDepAmount('');
+        setDepAmount('');
       } else {
         alert(data.error || "Failed to create payment invoice.");
       }
@@ -644,13 +630,6 @@ export function Wallet() {
                   <span className="text-[13px] font-bold">Accounts</span>
                 </button>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsConfigModalOpen(true)}
-                    className="p-1 hover:bg-white/5 rounded text-dark-text-muted hover:text-primary-500 transition-all cursor-pointer"
-                    title="Manage Wallets"
-                  >
-                    <Settings className="w-4 h-4" />
-                  </button>
                   <button onClick={() => setIsAccountsOpen(!isAccountsOpen)}>
                     {isAccountsOpen ? <ChevronUp className="w-4 h-4 text-dark-text-muted" /> : <ChevronDown className="w-4 h-4 text-dark-text-muted" />}
                   </button>
@@ -844,16 +823,6 @@ export function Wallet() {
             >
               {walletMainView === 'ORDERS' ? (
           <div className="w-full space-y-4">
-            <div className="flex justify-between items-center border-b border-white/[0.05] pb-3">
-              <h3 className="font-bold text-sm text-white uppercase tracking-wider">Advanced Order History Desk</h3>
-              <button 
-                onClick={() => setWalletMainView('ASSETS')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white border border-dark-border text-xs font-bold transition-all cursor-pointer"
-              >
-                <ChevronLeft className="w-3.5 h-3.5 text-primary-500" />
-                <span>Back to Overview</span>
-              </button>
-            </div>
             <OrderHistory />
           </div>
         ) : walletMainView === 'TRANSFER' ? (
@@ -888,7 +857,7 @@ export function Wallet() {
                       className="w-full bg-dark-bg border border-dark-border hover:border-dark-text-muted rounded-xl text-xs px-3.5 py-3 text-white outline-none focus:border-white transition-colors"
                     >
                       <option value="MAIN">Main Wallet (Universal Vault)</option>
-                      <option value="SPOT">Forex Spot (Simulated Desk)</option>
+                      <option value="SPOT">Forex Spot Desk</option>
                       <option value="CRYPTO">Crypto (Sovereign Assets)</option>
                       <option value="MEMECOIN">Memecoin (Speculative Desk)</option>
                     </select>
@@ -901,7 +870,7 @@ export function Wallet() {
                       className="w-full bg-dark-bg border border-dark-border hover:border-dark-text-muted rounded-xl text-xs px-3.5 py-3 text-white outline-none focus:border-white transition-colors"
                     >
                       <option value="MAIN">Main Wallet (Universal Vault)</option>
-                      <option value="SPOT">Forex Spot (Simulated Desk)</option>
+                      <option value="SPOT">Forex Spot Desk</option>
                       <option value="CRYPTO">Crypto (Sovereign Assets)</option>
                       <option value="MEMECOIN">Memecoin (Speculative Desk)</option>
                     </select>
@@ -1076,18 +1045,18 @@ export function Wallet() {
                   <div className="bg-dark-bg border border-dark-border/60 rounded-xl p-5 space-y-4 text-left">
                     <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
                       <Sparkles className="w-4 h-4 animate-pulse shrink-0" />
-                      <span>Simulate Ledger Sweep Credits</span>
+                      <span>Deposit via NowPayments</span>
                     </div>
                     <p className="text-[11px] text-dark-text-muted leading-relaxed font-medium">
-                      Establish a mock deposit transaction to verify the automatic internal ledger routing. Credit changes will instantly adjust your Main account's available balances upon entry.
+                      Create an invoice through our payment gateway to process real crypto deposits safely to your account balances.
                     </p>
                     
                     <div className="flex gap-2.5">
                       <div className="relative flex-1">
                         <input 
                           type="number"
-                          value={simulatedDepAmount}
-                          onChange={(e) => setSimulatedDepAmount(e.target.value)}
+                          value={depAmount}
+                          onChange={(e) => setDepAmount(e.target.value)}
                           placeholder={`Enter quantity of ${depAsset}`}
                           className="w-full bg-dark-surface border border-dark-border hover:border-dark-text-muted rounded-xl pl-3.5 pr-14 py-2.5 text-xs text-white placeholder-dark-text-muted focus:border-white outline-none transition-colors font-mono"
                         />

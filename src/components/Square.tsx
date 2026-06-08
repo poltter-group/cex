@@ -17,11 +17,12 @@ import {
   TrendingUp,
   Bookmark,
   Sparkles,
-  ArrowLeft
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import { useAuth } from '../lib/auth-context';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, setDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, setDoc, doc, serverTimestamp, updateDoc, addDoc } from 'firebase/firestore';
 
 export function Square({
   activeCategory: propActiveCategory,
@@ -40,12 +41,11 @@ export function Square({
   const setActiveCategory = propSetActiveCategory || setLocalCategory;
   const [inputText, setInputText] = useState('');
   
-  const initialPosts = [
-    { id: '1', name: "Crypto King", handle: "@cryptoking", time: "2h", content: "Bitcoin is showing strong momentum here. If we break the resistance at $78k, we might see a rally towards the next psychological barrier. What are your thoughts on the macro environment? 🚀📈 #Bitcoin #Crypto", likes: 1240, likesUsers: [] as string[], retweets: 342, replies: 89 },
-    { id: '2', name: "DeFi Degen", handle: "@defidegen", time: "4h", content: "Just ape'd into the new liquidity pool on Solana. The APY is crazy right now. Make sure you understand impermanent loss before jumping in though. DYOR!", likes: 856, likesUsers: [] as string[], retweets: 120, replies: 45 },
-    { id: '3', name: "Web3 Builder", handle: "@web3builder", time: "5h", content: "The UX of most decentralized apps is still the biggest hurdle to mass adoption. We need to abstract away seed phrases and gas fees. Account abstraction is the future.", likes: 2100, likesUsers: [] as string[], retweets: 890, replies: 124 },
-    { id: '4', name: "NFT Collector", handle: "@nftcollector", time: "8h", content: "Swept the floor on my favorite collection today. The art is just too good to ignore. Expecting a big announcement from the team next week. 🖼️💎", likes: 540, likesUsers: [] as string[], retweets: 56, replies: 21 },
-  ];
+  const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
+  const [activePostId, setActivePostId] = useState<string | number | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [postComments, setPostComments] = useState<any[]>([]);
+  const [attachTrade, setAttachTrade] = useState(false);
 
   interface PostType {
     id: string | number;
@@ -57,7 +57,15 @@ export function Square({
     likesUsers: string[];
     retweets: number;
     replies: number;
+    attachedTrade?: {
+      pair: string;
+      side: string;
+      roi: string;
+    };
   }
+
+  const initialPosts: PostType[] = [];
+
 
   const [posts, setPosts] = useState<PostType[]>(initialPosts);
 
@@ -90,19 +98,39 @@ export function Square({
             likes: data.likes || 0,
             likesUsers: data.likesUsers || [],
             retweets: data.retweets || 0,
-            replies: data.replies || 0
+            replies: data.replies || 0,
+            attachedTrade: data.attachedTrade
           };
         });
         // Combine live posts with initial template posts for a rich feed experience
         setPosts([...fetched, ...initialPosts.filter(ip => !fetched.some(fp => String(fp.id) === String(ip.id)))]);
       }, (error) => {
-        handleFirestoreError(error, OperationType.GET, pathForOnSnapshot);
+        console.warn("Permission issue or Firestore connection error loading posts feed. Using default offline feed as fallback.", error);
+        setPosts(initialPosts);
       });
       return () => unsubscribe();
     } catch (e) {
       console.error("Error setting up live posts snapshot listener:", e);
+      setPosts(initialPosts);
     }
   }, []);
+
+  // Listen to comments realtime
+  useEffect(() => {
+    if (!activePostId || typeof activePostId === 'number') {
+      setPostComments([]);
+      return;
+    }
+    const q = query(collection(db, 'posts', String(activePostId), 'comments'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPostComments(snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        time: doc.data().createdAt ? new Date(doc.data().createdAt.toMillis()).toLocaleString() : 'Just now'
+      })));
+    });
+    return () => unsubscribe();
+  }, [activePostId]);
 
   const handlePost = async () => {
     if (!inputText.trim()) return;
@@ -124,14 +152,46 @@ export function Square({
       likesUsers: [],
       retweets: 0,
       replies: 0,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      ...(attachTrade ? { attachedTrade: { pair: 'BTC/USDT', side: 'Long', roi: '+12.5%' } } : {})
     };
 
     try {
       await setDoc(doc(db, 'posts', postId), newPostDoc);
       setInputText('');
+      setAttachTrade(false);
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `posts/${postId}`);
+    }
+  };
+
+  const handleComment = async () => {
+    if (!commentText.trim() || !user || !activePostId) {
+      if (!user) {
+        if (setAuthMode) setAuthMode('LOGIN');
+        if (setCurrentView) setCurrentView('AUTH');
+      }
+      return;
+    }
+    const username = profile?.email ? profile.email.split('@')[0] : 'CEXPRO User';
+    try {
+      const parentPostRef = doc(db, 'posts', String(activePostId));
+      await addDoc(collection(parentPostRef, 'comments'), {
+        userId: user.uid,
+        name: username,
+        content: commentText,
+        createdAt: serverTimestamp()
+      });
+      // Increment reply count
+      const activePost = posts.find(p => p.id === activePostId);
+      if (activePost) {
+        await updateDoc(parentPostRef, {
+          replies: (activePost.replies || 0) + 1
+        });
+      }
+      setCommentText('');
+    } catch (e) {
+      console.error('Failed to post comment', e);
     }
   };
 
@@ -229,113 +289,28 @@ export function Square({
     },
   ];
 
-  // News curated list
-  const newsArticles = [
-    {
-      id: 1,
-      source: "Bloomberg Crypto",
-      time: "25m ago",
-      title: "Bitcoin Surpasses $75,000 Milestone Mark Driven by Relentless ETF Allocation",
-      summary: "Inflows into institutional spot exchange products continue at record pace. Analysts see high probability of ongoing consolidation before aiming for key psychological six-figure bounds.",
-      reads: "14.2K reads",
-      tag: "BTC"
-    },
-    {
-      id: 2,
-      source: "Reuters Finance",
-      time: "1h ago",
-      title: "Consensus Layer Upgrade Successfully Deployed on Testnets with High Efficiencies",
-      summary: "Core blockchain developers confirmed smooth network execution. The final mainnet implementation schedule promises significantly optimized transaction validation delays.",
-      reads: "8.5K reads",
-      tag: "Tech"
-    },
-    {
-      id: 3,
-      source: "Wall Street Journal",
-      time: "2h ago",
-      title: "SEC Grants Final Authorization For Options Trading on Spot Ethereum Accounts",
-      summary: "The greenlight introduces vast derivatives structuring possibilities for registered hedge funds and treasury desk managers looking to customize ether yield exposure.",
-      reads: "19.1K reads",
-      tag: "ETH"
-    },
-    {
-      id: 4,
-      source: "CoinDesk Research",
-      time: "4h ago",
-      title: "On-Chain Activity Metrics Reach Peak Densities Across Liquid Layer-2 Chains",
-      summary: "Transaction numbers surpass native mainnet capacities as smart contracts abstract gas overhead with batch compression rollups. DeFi yields remain resiliently high.",
-      reads: "11.3K reads",
-      tag: "DeFi"
-    }
-  ];
+  const newsArticles: any[] = [];
+  const academyCourses: any[] = [];
+  const blogPosts: any[] = [];
 
-  // Academy Curated list
-  const academyCourses = [
-    {
-      id: 1,
-      level: "Beginner",
-      duration: "15 min read",
-      title: "The Mechanics of Spot Trading: Order Book & Order Types",
-      desc: "Learn how matching engines pair bids and asks. Understand the differences between market executions, limit orders, and stop conditions to enhance capital allocation safety.",
-      modules: 4,
-      author: "CEXPRO Education"
-    },
-    {
-      id: 2,
-      level: "Intermediate",
-      duration: "25 min read",
-      title: "Advanced Position Hedging: Leveraging Spot and Perpetual Swaps",
-      desc: "An end-to-end framework discussing funding rate exploits, spot-futures arbitrage, and hedging portfolio asset variance using highly reliable custom order combinations.",
-      modules: 6,
-      author: "Trading Desk Research"
-    },
-    {
-      id: 3,
-      level: "Beginner",
-      duration: "10 min read",
-      title: "Cold Wallets vs. Hot Storage: Safeguarding Private Keys",
-      desc: "Best practices surrounding self-custody. Learn the underlying mathematics behind seed recovery strings, multi-signature authentication blocks, and hardware security paradigms.",
-      modules: 3,
-      author: "Security Team"
-    },
-    {
-      id: 4,
-      level: "Advanced",
-      duration: "40 min read",
-      title: "Order Flow Analysis & Volume Profiles in Volatile Assets",
-      desc: "Gain deep insights into order book liquidity imbalance, dynamic delta metrics, and point of control trading nodes to identify institutional block levels visually.",
-      modules: 8,
-      author: "Market Maker Core"
-    }
-  ];
+  const renderContent = (content: string) => {
+    return content.split(/(\#[a-zA-Z0-9_]+)/g).map((part, i) => {
+      if (part.startsWith('#')) {
+        return (
+          <span 
+            key={i} 
+            onClick={(e) => { e.stopPropagation(); setActiveHashtag(part.substring(1)); setActivePostId(null); }}
+            className="text-primary-500 hover:underline cursor-pointer font-bold"
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
 
-  // Blog Curated list
-  const blogPosts = [
-    {
-      id: 1,
-      category: "Market Outlook",
-      date: "May 21, 2026",
-      title: "CEXPRO Quarterly Research: Macro-Liquidity Shifts & Token Valuation Models",
-      summary: "An intensive data-driven review evaluating sovereign treasury reserves, institutional asset class rotations, and network-value-to-transaction (NVT) indicators for prime Layer-1 ecosystems.",
-      author: "Chief Market Officer"
-    },
-    {
-      id: 2,
-      category: "Trading Strategies",
-      date: "May 19, 2026",
-      title: "Deciphering Liquidity Sweeps and Fakeouts in Consolidation ranges",
-      summary: "Step-by-step analytical tactics on how smart money captures retail stop liquidity before changing primary direction. Learn how to stay on the correct side of trend structures.",
-      author: "Head of Arbitrage"
-    },
-    {
-      id: 3,
-      category: "Protocol Deep Dive",
-      date: "May 14, 2026",
-      title: "The Technical Progression of Zero-Knowledge Rollups and Account Abstraction",
-      summary: "Exploring state verification compression, bundler setups, and paymaster specifications that allow decentralized users to seamlessly pay gas fees with any custom token asset.",
-      author: "Lead Tech Strategist"
-    }
-  ];
+  const activePosts = posts.filter(p => activeHashtag ? p.content.toLowerCase().includes(`#${activeHashtag.toLowerCase()}`) : true);
 
   return (
     <motion.div 
@@ -377,88 +352,237 @@ export function Square({
             {/* View renders */}
             {activeCategory === 'COMMUNITY' && (
               <>
-                {/* Post Creator Box */}
-                <div className="bg-dark-surface border border-dark-border rounded-xl p-5">
-                  <div className="flex gap-4">
-                     <div className="w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center font-extrabold shrink-0 border border-dark-border select-none">
-                       CP
-                     </div>
-                     <div className="flex-1">
-                       <textarea 
-                         value={inputText}
-                         onChange={(e) => setInputText(e.target.value)}
-                         placeholder="Share your technical analysis, questions, or news with CEXPRO experts..." 
-                         className="w-full bg-transparent border-none text-white focus:outline-none min-h-[70px] resize-none text-[15px] placeholder-dark-text-muted font-sans"
-                       ></textarea>
-                       <div className="flex items-center justify-between pt-3 border-t border-dark-border/60">
-                         <div className="flex gap-4 text-[#8B8B93]">
-                            <button className="hover:bg-dark-surface-alt p-2 rounded-full transition-colors cursor-pointer" title="Simulate photo upload">
-                              <ImageIcon className="w-4 h-4 text-white" />
-                            </button>
-                         </div>
-                         <button 
-                           onClick={handlePost}
-                           className="bg-white hover:bg-white/90 text-dark-bg font-extrabold py-1.5 px-6 rounded-full text-xs transition-colors cursor-pointer select-none"
-                         >
-                           Publish Post
-                         </button>
-                       </div>
-                     </div>
+                {/* Active Hashtag or Post Header Back Button */}
+                {(activeHashtag || activePostId) && (
+                  <div className="flex items-center gap-3 mb-4 cursor-pointer text-dark-text-muted hover:text-white transition-colors" onClick={() => { setActiveHashtag(null); setActivePostId(null); }}>
+                    <ArrowLeft className="w-5 h-5" />
+                    <span className="font-bold">{activePostId ? 'Back to Feed' : `Trending: #${activeHashtag}`}</span>
                   </div>
-                </div>
+                )}
 
-                {/* Feed Lists */}
-                <div className="space-y-4">
-                  {posts.map((post, i) => (
-                    <motion.div 
-                      key={post.id} 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="bg-dark-surface border border-dark-border rounded-xl p-5 hover:bg-dark-surface/80 transition-all cursor-pointer"
-                    >
-                      <div className="flex gap-4">
-                        <div className="w-10 h-10 rounded-full bg-dark-border shrink-0 flex items-center justify-center font-extrabold text-dark-text select-none text-xs border border-dark-border">
-                          {post.name.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <h3 className="text-white font-extrabold text-sm">{post.name}</h3>
-                            <span className="text-dark-text-muted text-xs font-semibold">{post.handle}</span>
-                            <span className="text-dark-text-muted text-xs">·</span>
-                            <span className="text-dark-text-muted text-xs">{post.time}</span>
-                          </div>
-                          <p className="text-white text-[14px] leading-relaxed mb-4 whitespace-pre-wrap font-sans">
-                            {post.content}
-                          </p>
-                          <div className="flex items-center gap-7 text-[#8B8B93] text-xs max-w-md select-none">
-                            <button className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer group">
-                              <MessageSquare className="w-4 h-4" />
-                              <span>{post.replies}</span>
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleRepost(post.id); }}
-                              className="flex items-center gap-1.5 hover:text-buy transition-colors cursor-pointer group"
-                            >
-                              <Repeat className="w-4 h-4" />
-                              <span>{post.retweets}</span>
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleLike(post.id); }}
-                              className="flex items-center gap-1.5 hover:text-sell transition-colors cursor-pointer group"
-                            >
-                              <Heart className="w-4 h-4" />
-                              <span>{post.likes}</span>
-                            </button>
-                            <button className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer ml-auto">
-                              <Share2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
+                {/* Post Creator Box */}
+                {!activePostId && (
+                  <div className="bg-dark-surface border border-dark-border rounded-xl p-5">
+                    <div className="flex gap-4">
+                       <div className="w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center font-extrabold shrink-0 border border-dark-border select-none">
+                         CP
+                       </div>
+                       <div className="flex-1">
+                         <textarea 
+                           value={inputText}
+                           onChange={(e) => setInputText(e.target.value)}
+                           placeholder="Share your technical analysis, questions, or news with CEXPRO experts..." 
+                           className="w-full bg-transparent border-none text-white focus:outline-none min-h-[70px] resize-none text-[15px] placeholder-dark-text-muted font-sans"
+                         ></textarea>
+                         
+                         {attachTrade && (
+                           <div className="mt-2 mb-4 p-3 border border-primary-500/30 bg-primary-500/5 rounded-lg flex items-center justify-between">
+                             <div className="flex items-center gap-3">
+                               <div className="w-8 h-8 rounded bg-dark-bg flex items-center justify-center font-bold text-white text-xs">BTC</div>
+                               <div>
+                                 <div className="text-white text-xs font-bold">BTC/USDT <span className="text-[#10B981] ml-1">Long</span></div>
+                                 <div className="text-[#10B981] text-[10px] font-mono">+12.5% ROI</div>
+                               </div>
+                             </div>
+                             <button onClick={() => setAttachTrade(false)} className="text-dark-text-muted hover:text-white p-1">
+                               <X className="w-4 h-4" />
+                             </button>
+                           </div>
+                         )}
+
+                         <div className="flex items-center justify-between pt-3 border-t border-dark-border/60">
+                           <div className="flex gap-4 text-[#8B8B93]">
+                              <button className="hover:bg-dark-surface-alt p-2 rounded-full transition-colors cursor-pointer" title="Simulate photo upload">
+                                <ImageIcon className="w-4 h-4 text-white" />
+                              </button>
+                              <button onClick={() => setAttachTrade(true)} className="hover:bg-dark-surface-alt p-2 rounded-full transition-colors cursor-pointer flex items-center gap-1.5" title="Share Trade Target">
+                                <TrendingUp className="w-4 h-4 text-white" />
+                                <span className="text-xs text-white font-bold hidden sm:inline">Share Trade</span>
+                              </button>
+                           </div>
+                           <button 
+                             onClick={handlePost}
+                             className="bg-white hover:bg-white/90 text-dark-bg font-extrabold py-1.5 px-6 rounded-full text-xs transition-colors cursor-pointer select-none"
+                           >
+                             Publish Post
+                           </button>
+                         </div>
+                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Feed Lists or Post Detail View */}
+                {activePostId ? (
+                  <div className="space-y-4">
+                    {/* Active Post */}
+                    <div className="bg-dark-surface border border-dark-border rounded-xl p-5 mb-4 mt-2">
+                       {(() => {
+                         const post = posts.find(p => p.id === activePostId);
+                         if (!post) return <div className="text-white">Post not found.</div>;
+                         return (
+                           <div className="flex gap-4">
+                             <div className="w-10 h-10 rounded-full bg-dark-border shrink-0 flex items-center justify-center font-extrabold text-dark-text select-none text-xs border border-dark-border">
+                               {post.name.charAt(0)}
+                             </div>
+                             <div className="flex-1 min-w-0">
+                               <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                 <h3 className="text-white font-extrabold text-sm">{post.name}</h3>
+                                 <span className="text-dark-text-muted text-xs font-semibold">{post.handle}</span>
+                                 <span className="text-dark-text-muted text-xs">·</span>
+                                 <span className="text-dark-text-muted text-xs">{post.time}</span>
+                               </div>
+                               <p className="text-white text-[15px] leading-relaxed mb-4 whitespace-pre-wrap font-sans">
+                                 {renderContent(post.content)}
+                               </p>
+                               
+                               {post.attachedTrade && (
+                                 <div className="mb-4 p-3 border border-dark-border bg-dark-bg rounded-lg flex items-center justify-between opacity-90 inline-block w-full max-w-sm">
+                                   <div className="flex items-center gap-3">
+                                     <div className="w-8 h-8 rounded bg-dark-surface flex items-center justify-center font-bold text-white text-xs">{post.attachedTrade.pair.split('/')[0]}</div>
+                                     <div>
+                                       <div className="text-white text-xs font-bold">{post.attachedTrade.pair} <span className="text-[#10B981] ml-1">{post.attachedTrade.side}</span></div>
+                                       <div className="text-[#10B981] text-[10px] font-mono">{post.attachedTrade.roi} ROI</div>
+                                     </div>
+                                   </div>
+                                 </div>
+                               )}
+                               
+                               <div className="flex items-center gap-7 text-[#8B8B93] text-xs max-w-md select-none mt-2">
+                                 <button className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer group text-primary-500">
+                                   <MessageSquare className="w-4 h-4" />
+                                   <span>{post.replies}</span>
+                                 </button>
+                                 <button onClick={(e) => { e.stopPropagation(); handleRepost(post.id); }} className="flex items-center gap-1.5 hover:text-buy transition-colors cursor-pointer group">
+                                   <Repeat className="w-4 h-4" />
+                                   <span>{post.retweets}</span>
+                                 </button>
+                                 <button onClick={(e) => { e.stopPropagation(); handleLike(post.id); }} className="flex items-center gap-1.5 hover:text-sell transition-colors cursor-pointer group">
+                                   <Heart className="w-4 h-4" />
+                                   <span>{post.likes}</span>
+                                 </button>
+                               </div>
+                             </div>
+                           </div>
+                         );
+                       })()}
+                    </div>
+
+                    {/* Comment Composer */}
+                    <div className="flex gap-4 items-start pl-14 mb-6">
+                      <div className="w-8 h-8 rounded-full bg-dark-border flex items-center justify-center font-extrabold text-white text-xs border border-dark-border">
+                        {user ? 'M' : '?'}
                       </div>
-                    </motion.div>
-                  ))}
-                </div>
+                      <div className="flex-1 flex gap-2">
+                        <textarea 
+                           value={commentText}
+                           onChange={(e) => setCommentText(e.target.value)}
+                           placeholder="Post your reply..." 
+                           className="flex-1 bg-dark-surface border border-dark-border rounded-lg p-3 text-white focus:outline-none min-h-[50px] resize-none text-[13px] placeholder-dark-text-muted"
+                        ></textarea>
+                        <button onClick={handleComment} className="bg-primary-500 hover:bg-primary-600 text-black font-extrabold px-4 py-2 rounded-lg text-xs transition-colors self-end">Reply</button>
+                      </div>
+                    </div>
+
+                    {/* Comments List */}
+                    <div className="space-y-4 pl-14">
+                      {postComments.map((comment, idx) => (
+                         <div key={comment.id || idx} className="bg-dark-surface/50 border border-dark-border/40 rounded-xl p-4">
+                           <div className="flex gap-3">
+                             <div className="w-8 h-8 rounded-full bg-dark-bg flex items-center justify-center text-xs font-bold text-white shrink-0">
+                               {comment.name?.charAt(0) || 'U'}
+                             </div>
+                             <div>
+                               <div className="flex items-center gap-2 mb-1">
+                                 <h4 className="text-white font-bold text-xs">{comment.name}</h4>
+                                 <span className="text-dark-text-muted text-[10px]">{comment.time}</span>
+                               </div>
+                               <p className="text-white text-[13px] leading-relaxed">
+                                 {renderContent(comment.content)}
+                               </p>
+                             </div>
+                           </div>
+                         </div>
+                      ))}
+                      {postComments.length === 0 && (
+                        <div className="text-dark-text-muted text-xs p-4 bg-dark-surface/30 rounded-lg text-center border border-dark-border/30">
+                          No replies yet. Be the first to comment!
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {activePosts.map((post, i) => (
+                      <motion.div 
+                        key={post.id} 
+                        onClick={() => setActivePostId(post.id)}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="bg-dark-surface border border-dark-border rounded-xl p-5 hover:bg-dark-surface/80 transition-all cursor-pointer"
+                      >
+                        <div className="flex gap-4">
+                          <div className="w-10 h-10 rounded-full bg-dark-border shrink-0 flex items-center justify-center font-extrabold text-dark-text select-none text-xs border border-dark-border">
+                            {post.name.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <h3 className="text-white font-extrabold text-sm">{post.name}</h3>
+                              <span className="text-dark-text-muted text-xs font-semibold">{post.handle}</span>
+                              <span className="text-dark-text-muted text-xs">·</span>
+                              <span className="text-dark-text-muted text-xs">{post.time}</span>
+                            </div>
+                            <p className="text-white text-[14px] leading-relaxed mb-4 whitespace-pre-wrap font-sans">
+                              {renderContent(post.content)}
+                            </p>
+
+                            {post.attachedTrade && (
+                              <div className="mb-4 p-3 border border-dark-border bg-dark-bg rounded-lg flex items-center justify-between opacity-90 inline-block w-full max-w-[240px]">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded bg-dark-surface flex items-center justify-center font-bold text-white text-xs">{post.attachedTrade.pair.split('/')[0]}</div>
+                                  <div>
+                                    <div className="text-white text-xs font-bold">{post.attachedTrade.pair} <span className="text-[#10B981] ml-1">{post.attachedTrade.side}</span></div>
+                                    <div className="text-[#10B981] text-[10px] font-mono">{post.attachedTrade.roi} ROI</div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-7 text-[#8B8B93] text-xs max-w-md select-none">
+                              <button className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer group">
+                                <MessageSquare className="w-4 h-4" />
+                                <span>{post.replies}</span>
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleRepost(post.id); }}
+                                className="flex items-center gap-1.5 hover:text-buy transition-colors cursor-pointer group"
+                              >
+                                <Repeat className="w-4 h-4" />
+                                <span>{post.retweets}</span>
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleLike(post.id); }}
+                                className="flex items-center gap-1.5 hover:text-sell transition-colors cursor-pointer group"
+                              >
+                                <Heart className="w-4 h-4" />
+                                <span>{post.likes}</span>
+                              </button>
+                              <button className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer ml-auto">
+                                <Share2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                    {activePosts.length === 0 && (
+                      <div className="p-8 text-center text-dark-text-muted">
+                        No posts found for #{activeHashtag}
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
@@ -580,8 +704,43 @@ export function Square({
 
           </div>
 
-          {/* RIGHT SIDEBAR COLUMN - Trending Topics stays fully intact */}
+          {/* RIGHT SIDEBAR COLUMN - Top Communities */}
           <div className="w-80 hidden lg:block shrink-0 space-y-4 select-none">
+            <div className="bg-dark-surface border border-dark-border/60 rounded-xl p-5 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-extrabold text-base flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary-500" />
+                  <span>Top Communities</span>
+                </h3>
+              </div>
+              <div className="space-y-4">
+                {[
+                  { name: 'Bitcoin Maxis', members: '124K' },
+                  { name: 'DeFi Degens', members: '89K' },
+                  { name: 'Web3 Builders', members: '150K' },
+                  { name: 'NFT Collectors', members: '210K' },
+                  { name: 'Solana Summer', members: '54K' },
+                ].map((community, i) => (
+                  <div key={i} className="flex items-center justify-between space-x-3 cursor-pointer group pb-3 border-b border-dark-border/40 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-dark-bg border border-dark-border flex items-center justify-center text-white font-bold text-xs uppercase cursor-pointer group-hover:border-primary-500 transition-colors">
+                        {community.name.substring(0, 2)}
+                      </div>
+                      <div>
+                        <div className="text-white text-xs font-black group-hover:text-primary-500 transition-colors">{community.name}</div>
+                        <div className="text-[10px] text-dark-text-muted mt-0.5">
+                          {community.members} Members
+                        </div>
+                      </div>
+                    </div>
+                    <button className="text-[10px] bg-dark-bg border border-dark-border px-2 py-1 rounded text-white group-hover:border-primary-500 transition-colors uppercase font-bold">
+                       Join
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="bg-dark-surface border border-dark-border/60 rounded-xl p-5 h-full flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-extrabold text-base flex items-center gap-2">

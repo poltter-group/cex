@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth, getWalletBalance } from '../lib/auth-context';
 import { useMarket } from '../lib/market-context';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, updateDoc, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Loader2, XCircle, CheckCircle, Filter, FileText, Download } from 'lucide-react';
 import { placeSpotOrder, cancelSpotOrder, simulateFillSpotOrder } from '../lib/spot-engine';
@@ -20,6 +20,8 @@ interface Order {
   total: number;
   tp: number | null;
   sl: number | null;
+  tpSlTriggered?: boolean;
+  walletType?: string;
   status: 'Open' | 'Filled' | 'Canceled';
   createdAt: any;
 }
@@ -184,6 +186,59 @@ export function OrderHistory() {
     }
   };
 
+  useEffect(() => {
+    if (!user || orders.length === 0 || Object.keys(prices).length === 0) return;
+    
+    // Process Limit Order Auto-fills and TP/SL Triggers
+    orders.forEach(async (order) => {
+      const [baseAsset] = (order.pair || '').split('/');
+      const currentPrice = prices[baseAsset] || prices[order.pair];
+      if (!currentPrice || currentPrice <= 0) return;
+
+      // 1. Auto-fill open limit orders if price reaches the target price
+      if (order.status === 'Open' && order.type !== 'Market') {
+         if ((order.side === 'Buy' && currentPrice <= order.price) || 
+             (order.side === 'Sell' && currentPrice >= order.price)) {
+            await handleFillOrder(order);
+         }
+      }
+
+      // 2. Auto-trigger TP / SL for filled orders
+      if (order.status === 'Filled' && !order.tpSlTriggered && (order.tp || order.sl)) {
+         const pos = positions.find(p => p.coin === baseAsset);
+         const availableAmount = pos ? pos.amount : 0;
+         if (availableAmount > 0) {
+            let triggered = false;
+            if (order.side === 'Buy') {
+               if (order.tp && currentPrice >= order.tp) triggered = true;
+               if (order.sl && currentPrice <= order.sl) triggered = true;
+            } else if (order.side === 'Sell') {
+               if (order.tp && currentPrice <= order.tp) triggered = true;
+               if (order.sl && currentPrice >= order.sl) triggered = true;
+            }
+            if (triggered) {
+               const sellAmount = Math.min(order.amount, availableAmount);
+               try {
+                 await placeSpotOrder({
+                   userId: user.uid,
+                   baseAsset: baseAsset,
+                   quoteAsset: 'USDT', // Assuming USDT for simplicity in TP/SL auto-close
+                   walletType: order.walletType || 'MAIN',
+                   side: order.side === 'Buy' ? 'Sell' : 'Buy',
+                   type: 'Market',
+                   amount: sellAmount,
+                   price: currentPrice
+                 });
+                 await updateDoc(doc(db, 'orders', order.id), { tpSlTriggered: true });
+               } catch (e) {
+                 console.error("Auto TP/SL Trigger Failed:", e);
+               }
+            }
+         }
+      }
+    });
+  }, [prices, orders, user, positions]);
+
   const openOrders = orders.filter(o => o.status === 'Open');
   
   const finishedOrders = orders.filter(o => {
@@ -294,25 +349,19 @@ export function OrderHistory() {
             onClick={() => setActiveTab('POSITIONS')}
             className={`pb-3 transition-all cursor-pointer ${activeTab === 'POSITIONS' ? 'text-primary-500 border-b-2 border-primary-500' : 'text-dark-text-muted hover:text-white border-b-2 border-transparent'}`}
           >
-            Positions ({positions.length})
+            Assets ({positions.length})
           </button>
           <button 
             onClick={() => setActiveTab('OPEN')}
             className={`pb-3 transition-all cursor-pointer ${activeTab === 'OPEN' ? 'text-primary-500 border-b-2 border-primary-500' : 'text-dark-text-muted hover:text-white border-b-2 border-transparent'}`}
           >
-            Open Orders ({openOrders.length})
+            Open orders ({openOrders.length})
           </button>
           <button 
             onClick={() => setActiveTab('HISTORY')}
             className={`pb-3 transition-all cursor-pointer ${activeTab === 'HISTORY' ? 'text-primary-500 border-b-2 border-primary-500' : 'text-dark-text-muted hover:text-white border-b-2 border-transparent'}`}
           >
-            Order History ({finishedOrders.length})
-          </button>
-          <button 
-            onClick={() => setActiveTab('TRADES')}
-            className={`pb-3 transition-all cursor-pointer ${activeTab === 'TRADES' ? 'text-primary-500 border-b-2 border-primary-500' : 'text-dark-text-muted hover:text-white border-b-2 border-transparent'}`}
-          >
-            Trade History ({filteredTrades.length})
+            Order history ({finishedOrders.length})
           </button>
         </div>
       </div>
@@ -513,6 +562,15 @@ export function OrderHistory() {
                 })}
               </div>
            )
+         ) : activeTab === 'BOTS' as any ? (
+           <div className="flex-1 flex flex-col items-center justify-center text-xs text-dark-text-muted p-8 font-medium gap-3 hover:bg-dark-surface/5 transition-colors">
+              <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center text-primary-500 mb-2">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+              </div>
+              <p className="text-white text-sm font-bold">API Trading & Bots Configuration</p>
+              <p className="text-center max-w-sm">Coming soon. Set up algorithmic trades, Grid bots, DCA parameters, and smart rebalancing strategies to automate your crypto portfolio.</p>
+              <button className="mt-2 px-6 py-2 bg-primary-500 text-black font-bold rounded-lg hover:bg-primary-600 transition-colors">Configure Bots Setup</button>
+           </div>
          ) : (activeTab === 'OPEN' ? openOrders : finishedOrders).length === 0 ? (
             <div className="flex-1 flex items-center justify-center text-xs text-dark-text-muted p-8 font-medium">
                No active records found matching criteria

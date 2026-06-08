@@ -5,6 +5,7 @@ import { OrderBook } from './OrderBook';
 import { ChartPlaceholder } from './ChartPlaceholder';
 import { OrderEntry } from './OrderEntry';
 import { RecentTrades } from './RecentTrades';
+import { FundFlowAnalysis } from './FundFlowAnalysis';
 import { OrderHistory } from './OrderHistory';
 import { Star, Search, CheckCircle, AlertCircle } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -27,17 +28,14 @@ export function TradingDashboard({
   const [localPair, setLocalPair] = useState('BTC');
   const activePair = activeTradePair || localPair;
   const setActivePair = setActiveTradePair || setLocalPair;
+  
+  const [leftSubTab, setLeftSubTab] = useState<'TRADES' | 'FUND_FLOW'>('TRADES');
 
-  const [activeCategory, setActiveCategory] = useState<'Crypto' | 'Spot' | 'Memecoin'>('Crypto');
   const [searchQuery, setSearchQuery] = useState('');
   const [quickTradeUSD, setQuickTradeUSD] = useState('100');
   const [notification, setNotification] = useState<{msg: string; type: 'success'|'error'} | null>(null);
   
-  const [tradableAssets, setTradableAssets] = useState<any>({
-    Crypto: [],
-    Spot: [],
-    Memecoin: []
-  });
+  const [tradableAssets, setTradableAssets] = useState<any[]>([]);
   const [favorites, setFavorites] = useState<string[]>(['BTCUSDT']);
 
   const toggleFavorite = (e: any, coin: string) => {
@@ -49,36 +47,27 @@ export function TradingDashboard({
 
   useEffect(() => {
     fetch('/api/markets')
-
       .then(res => res.json())
       .then(data => {
-        if (data && data.Crypto) {
-           setTradableAssets(data);
+        if (data) {
+           const allAssets = [
+             ...(data.Crypto || []),
+             ...(data.Spot || []),
+             ...(data.Memecoin || [])
+           ];
+           setTradableAssets(allAssets);
         }
       })
       .catch(err => console.error("Could not load markets from API", err));
   }, []);
 
-  // Auto-switch display tab when activePair prop updates from external trigger like Dropdown / Markets
-  useEffect(() => {
-    if (activePair) {
-      if (['XAUUSD', 'XAGUSD', 'EURUSD', 'GBPUSD', 'USDJPY'].includes(activePair)) {
-        setActiveCategory('Spot');
-      } else if (['DOGE', 'PEPE', 'SHIB', 'WIF', 'BANANA', 'KEVIN'].includes(activePair)) {
-        setActiveCategory('Memecoin');
-      } else {
-        setActiveCategory('Crypto');
-      }
-    }
-  }, [activePair]);
-
-  const currentAssets = tradableAssets[activeCategory] || [];
+  const currentAssets = tradableAssets || [];
   const filteredAssets = currentAssets.filter(item => 
     item.coin.toLowerCase().includes(searchQuery.toLowerCase()) || 
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const executeQuickTrade = async (coin: string, side: 'Buy' | 'Sell', currentPriceStr: string, cat: string) => {
+  const executeQuickTrade = async (coin: string, side: 'Buy' | 'Sell', currentPriceStr: string) => {
      if (!user || !profile) {
         setAuthMode('LOGIN');
         setCurrentView('AUTH');
@@ -100,7 +89,12 @@ export function TradingDashboard({
      const quoteAsset = coin.endsWith('USDT') ? 'USDT' : coin.endsWith('USD') ? 'USD' : 'USDT';
      const baseAsset = coin.replace(/USDT|USD$/, '');
      
-     // Derive walletType from category
+     // Derive walletType from coin
+     const cat = (['XAUUSD', 'XAGUSD', 'EURUSD', 'GBPUSD', 'USDJPY'].includes(coin) || coin.endsWith('USD')) 
+                  ? 'Spot' 
+                  : (['DOGE', 'PEPE', 'SHIB', 'WIF', 'BANANA', 'KEVIN'].includes(coin.replace(/USDT|USD$/, ''))) 
+                  ? 'Memecoin' 
+                  : 'Crypto';
      const walletType = cat === 'Spot' ? 'SPOT' : cat === 'Memecoin' ? 'MEMECOIN' : 'CRYPTO';
 
      const availableQuote = getWalletBalance(profile, walletType, quoteAsset);
@@ -150,21 +144,37 @@ export function TradingDashboard({
       )}
       <MarketTicker activePair={activePair} setActivePair={setActivePair} />
       <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_18.75rem] lg:grid-cols-[1fr_22rem] xl:grid-cols-[17.5rem_1fr_18.75rem] overflow-y-auto xl:overflow-hidden border-t border-dark-border custom-scroll">
-        {/* Left Col - Orderbook & Trades */}
         <div className="order-2 md:col-start-1 md:row-start-2 xl:col-start-1 xl:row-start-1 flex flex-col bg-dark-bg border-b xl:border-b-0 md:border-r border-dark-border overflow-hidden min-h-[500px] xl:min-h-0">
-          <div className="flex flex-col h-[60%] border-b border-dark-border">
+          <div className="flex flex-col h-[55%] border-b border-dark-border">
              <OrderBook activePair={activePair} />
           </div>
-          <div className="flex-1 overflow-hidden">
-             <RecentTrades activePair={activePair} />
+          <div className="flex-1 overflow-hidden flex flex-col">
+             <div className="flex justify-between px-4 py-2 border-b border-dark-border bg-dark-surface shrink-0 text-xs font-bold font-sans">
+               <div className="flex gap-4">
+                 <button 
+                    onClick={() => setLeftSubTab('TRADES')}
+                    className={`transition-colors cursor-pointer ${leftSubTab === 'TRADES' ? 'text-white' : 'text-dark-text-muted hover:text-white'}`}
+                 >
+                   Market trades
+                 </button>
+                 <button 
+                    onClick={() => setLeftSubTab('FUND_FLOW')}
+                    className={`transition-colors cursor-pointer ${leftSubTab === 'FUND_FLOW' ? 'text-white' : 'text-dark-text-muted hover:text-white'}`}
+                 >
+                   Fund flow analysis
+                 </button>
+               </div>
+             </div>
+             <div className="flex-1 overflow-hidden">
+                {leftSubTab === 'TRADES' ? <RecentTrades activePair={activePair} /> : <FundFlowAnalysis activePair={activePair} />}
+             </div>
           </div>
         </div>
         
-        {/* Middle Col - Chart & History */}
         <div className="order-1 md:col-start-1 md:row-start-1 xl:col-start-2 xl:row-start-1 flex flex-col min-w-0 bg-dark-bg border-b xl:border-b-0 md:border-r border-dark-border overflow-hidden min-h-[600px] xl:min-h-0">
-          <div className="flex justify-between items-center px-4 py-1.5 border-b border-dark-border bg-dark-surface shrink-0">
-             <div className="flex gap-4">
-                <button className="text-white font-medium text-xs">Advanced Chart View</button>
+          <div className="flex justify-between items-center px-4 py-2 border-b border-dark-border bg-dark-surface shrink-0 select-none">
+             <div className="flex gap-4 text-xs font-bold font-sans">
+                <button className="text-white border-b-2 border-primary-500 pb-1.5 -mb-2">TradingView</button>
              </div>
           </div>
           <div className="flex-1 relative">
@@ -175,30 +185,9 @@ export function TradingDashboard({
           </div>
         </div>
 
-        {/* Right Col - Market List & Order Entry */}
         <div className="order-3 md:col-start-2 md:row-start-1 md:row-span-2 xl:col-start-3 xl:row-start-1 xl:row-span-1 flex flex-col bg-dark-bg overflow-hidden min-h-[600px] xl:min-h-0">
-          {/* Market categories dynamic list & selectors */}
           <div className="h-[17.5rem] border-b border-dark-border flex flex-col text-xs font-medium">
              
-             {/* Category switch tabs */}
-             <div className="flex border-b border-dark-border">
-                {(['Crypto', 'Spot', 'Memecoin'] as const).map(cat => (
-                   <button
-                     key={cat}
-                     type="button"
-                     onClick={() => {
-                       setActiveCategory(cat);
-                       // Pre-select first coin in that category
-                       const firstAsset = tradableAssets[cat]?.[0]?.coin;
-                       if (firstAsset) setActivePair(firstAsset);
-                     }}
-                     className={`flex-1 py-2 text-center border-b-[2px] transition-all font-bold tracking-wider text-[10px] uppercase ${activeCategory === cat ? 'border-primary-500 text-primary-500 bg-white/5 font-extrabold' : 'border-transparent text-dark-text-muted hover:text-white hover:bg-white/2'}`}
-                   >
-                     {cat === 'Spot' ? 'Forex Spot' : cat}
-                   </button>
-                ))}
-             </div>
-
              {/* Search */}
              <div className="flex items-center gap-2 p-3 border-b border-dark-border bg-dark-bg">
                 <div className="flex items-center gap-2 flex-1">
@@ -221,7 +210,7 @@ export function TradingDashboard({
 
              <div className="flex-1 overflow-y-auto no-scrollbar custom-scroll">
                 {filteredAssets.map(asset => {
-                    const isUSD = activeCategory === 'Spot';
+                    const isUSD = (['XAUUSD', 'XAGUSD', 'EURUSD', 'GBPUSD', 'USDJPY'].includes(asset.coin) || asset.coin.endsWith('USD'));
                     const displaySymbol = isUSD ? 
                       (asset.coin === 'USDJPY' ? 'USD/JPY' : asset.coin.slice(0, 3) + '/' + asset.coin.slice(3)) : 
                       `${asset.coin}/USDT`;
@@ -248,16 +237,15 @@ export function TradingDashboard({
                              {asset.change}
                            </div>
                            
-                           {/* Quick Trade Buttons */}
                            <div className="w-32 items-center justify-end gap-1.5 hidden group-hover:flex">
                              <button
-                               onClick={(e) => { e.stopPropagation(); executeQuickTrade(asset.coin, 'Buy', asset.price, activeCategory); }}
+                               onClick={(e) => { e.stopPropagation(); executeQuickTrade(asset.coin, 'Buy', asset.price); }}
                                className="px-2 py-0.5 bg-[#10B981] hover:bg-[#10B981]/80 text-black font-extrabold text-[10px] rounded transition-colors"
                              >
                                BUY
                              </button>
                              <button
-                               onClick={(e) => { e.stopPropagation(); executeQuickTrade(asset.coin, 'Sell', asset.price, activeCategory); }}
+                               onClick={(e) => { e.stopPropagation(); executeQuickTrade(asset.coin, 'Sell', asset.price); }}
                                className="px-2 py-0.5 bg-[#F43F5E] hover:bg-[#F43F5E]/80 text-white font-extrabold text-[10px] rounded transition-colors"
                              >
                                SELL

@@ -77,6 +77,8 @@ export async function placeSpotOrder(orderRequest: any) {
                 total: orderTotal,
                 status: 'Open',
                 filledAmount: 0,
+                tp: orderRequest.tp ? parseFloat(orderRequest.tp) : null,
+                sl: orderRequest.sl ? parseFloat(orderRequest.sl) : null,
                 createdAt: serverTimestamp()
             });
             return;
@@ -147,6 +149,8 @@ export async function placeSpotOrder(orderRequest: any) {
                 total: totalCost,
                 filledAmount: orderAmount - remainingAmountToFill,
                 status: remainingAmountToFill > 0 ? (remainingAmountToFill === orderAmount ? 'Canceled' : 'Filled') : 'Filled',
+                tp: orderRequest.tp ? parseFloat(orderRequest.tp) : null,
+                sl: orderRequest.sl ? parseFloat(orderRequest.sl) : null,
                 createdAt: serverTimestamp()
             });
 

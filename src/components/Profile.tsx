@@ -84,64 +84,7 @@ export function Profile({ setCurrentView }: { setCurrentView?: (v: any) => void 
     USD: 1.00,
   };
 
-  // Bot simulation effect linked with Firestore database
-  useEffect(() => {
-    const activeBotIds = Object.keys(runningBots).filter(id => runningBots[id]);
-    if (activeBotIds.length === 0) return;
-
-    const intervalId = setInterval(() => {
-      activeBotIds.forEach(async (keyId) => {
-        const apiKeyObj = apiKeys.find(k => k.id === keyId);
-        if (!apiKeyObj) return;
-
-        // Verify if key has trade permission
-        const canTrade = apiKeyObj.permissions?.includes('trade');
-        if (!canTrade) {
-          setBotLogs(prev => ({
-            ...prev,
-            [keyId]: [
-              `[${new Date().toLocaleTimeString()}] 🤖 BOT WARN: Missing 'Leveraged Trade Access' permission on this key. Check permissions to authorize.`,
-              ...(prev[keyId] || [])
-            ].slice(0, 10)
-          }));
-          return;
-        }
-
-        const assets = ['BTC', 'ETH', 'SOL', 'DOGE', 'TRX'];
-        const randomAsset = assets[Math.floor(Math.random() * assets.length)];
-        const side = Math.random() > 0.45 ? 'BUY' : 'SELL';
-        
-        let qty = 0;
-        let p = ASSETS_PRICES[randomAsset] || 1.0;
-        
-        if (randomAsset === 'BTC') qty = parseFloat((Math.random() * 0.05 + 0.001).toFixed(4));
-        else if (randomAsset === 'ETH') qty = parseFloat((Math.random() * 0.4 + 0.01).toFixed(3));
-        else if (randomAsset === 'SOL') qty = parseFloat((Math.random() * 5 + 0.1).toFixed(2));
-        else qty = parseFloat((Math.random() * 300 + 10).toFixed(0));
-
-        const totalCostUSD = parseFloat((qty * p).toFixed(2));
-        const profit = parseFloat(((Math.random() * 5 - 1.8) * (totalCostUSD / 100)).toFixed(2));
-
-        // Increment or decrement user's real Firestore balance by the generated gain
-        try {
-          if (profit !== 0) {
-            await updateWalletBalance('MAIN', 'USD', profit);
-          }
-        } catch (err) {
-          console.warn('Bot balance update failed', err);
-        }
-
-        const logMsg = `[${new Date().toLocaleTimeString()}] 🤖 API PROXY TRADE: ${side} ${qty} ${randomAsset} at $${p.toLocaleString()} | Simulation Gain/Loss: ${profit >= 0 ? '+' : ''}$${profit} USD (Firestore synced)`;
-        
-        setBotLogs(prev => ({
-          ...prev,
-          [keyId]: [logMsg, ...((prev[keyId] || []))].slice(0, 10)
-        }));
-      });
-    }, 4000);
-
-    return () => clearInterval(intervalId);
-  }, [runningBots, apiKeys, ASSETS_PRICES]);
+  // Removed fake bot simulation effect per user request to clean the project of fake data
 
   const avatarPresets = [
     { name: 'Classic Blue', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80' },
@@ -805,19 +748,21 @@ export function Profile({ setCurrentView }: { setCurrentView?: (v: any) => void 
                           
                           <div className="pt-2">
                             <label className="block text-xs text-gray-500 font-bold mb-2 uppercase">Document Scanned Attachment</label>
-                            <div 
-                              onClick={() => setKycFileMock("CEXPRO_KYC_ID_VERIFY.PDF")}
-                              className="border border-dashed border-[#2C2D32] rounded-xl p-5 text-center bg-[#242529]/15 hover:bg-[#242529]/30 transition cursor-pointer"
-                            >
-                              <span className="text-xs text-gray-400 block font-medium">Click to attach high-contrast document file</span>
-                              {kycFileMock ? (
-                                <span className="inline-block mt-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs py-1 px-2.5 rounded font-mono select-none">
-                                  ✓ Selected: {kycFileMock}
-                                </span>
-                              ) : (
-                                <span className="inline-block mt-2 text-gray-500 text-[11px] font-mono">JPG, PNG OR PDF IMAGES SUPPORTED</span>
-                              )}
-                            </div>
+                            <input 
+                              type="file"
+                              accept=".jpg,.jpeg,.png,.pdf"
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                  setKycFileMock(e.target.files[0].name);
+                                }
+                              }}
+                              className="block w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#2A2B31] file:text-white hover:file:bg-[#32333A] bg-[#242529] border border-[#2C2D32] rounded-xl outline-none focus:border-[#00D2FF]"
+                            />
+                            {kycFileMock && (
+                               <span className="inline-block mt-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs py-1 px-2.5 rounded font-mono select-none">
+                                 ✓ Selected: {kycFileMock}
+                               </span>
+                            )}
                           </div>
 
                           <div className="flex gap-3">

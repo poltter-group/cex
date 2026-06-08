@@ -1,11 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  X, Wallet, Check, Copy, RefreshCw, AlertCircle, Sparkles, Smartphone, 
-  QrCode, ClipboardCheck, ArrowRight, ShieldAlert, Cpu, CheckCircle2 
-} from 'lucide-react';
+import { X, Loader2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth-context';
+
+type WalletProvider = 'MetaMask' | 'Phantom';
+
+const MetaMaskLogo = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 318.6 318.6" className="w-8 h-8">
+    <path fill="#e2761b" stroke="#e2761b" strokeLinecap="round" strokeLinejoin="round" d="m274.1 35.5-99.5 73.9L193 65.8z"/>
+    <path d="m44.4 35.5 98.7 74.6-17.5-44.3zm193.9 171.3-26.5 40.6 56.7 15.6 16.3-55.3zm-204.4.9L50.1 263l56.7-15.6-26.5-40.6z" fill="#e4761b" stroke="#e4761b" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="m103.6 138.2-15.8 23.9 56.3 2.5-2-60.5zm111.3 0-39-34.8-1.3 61.2 56.2-2.5zM106.8 247.4l33.8-16.5-29.2-22.8zm71.1-16.5 33.9 16.5-4.7-39.3z" fill="#e4761b" stroke="#e4761b" strokeLinecap="round" strokeLinejoin="round"/>
+    <path fill="#d7c1b3" stroke="#d7c1b3" strokeLinecap="round" strokeLinejoin="round" d="m211.8 247.4-33.9-16.5 2.7 22.1-.3 9.3zm-105 0 31.5 14.9-.2-9.3 2.5-22.1z"/>
+    <path fill="#233447" stroke="#233447" strokeLinecap="round" strokeLinejoin="round" d="m138.8 193.5-28.2-8.3 19.9-9.1zm40.9 0 8.3-17.4 20 9.1z"/>
+    <path fill="#cd6116" stroke="#cd6116" strokeLinecap="round" strokeLinejoin="round" d="m106.8 247.4 4.8-40.6-31.3.9zM207 206.8l4.8 40.6 26.5-39.7zm23.8-44.7-56.2 2.5 5.2 28.9 8.3-17.4 20 9.1zm-120.2 23.1 20-9.1 8.2 17.4 5.3-28.9-56.3-2.5z"/>
+    <path fill="#e4751f" stroke="#e4751f" strokeLinecap="round" strokeLinejoin="round" d="m87.8 162.1 23.6 46-.8-22.9zm120.3 23.1-1 22.9 23.7-46zm-64-20.6-5.3 28.9 6.6 34.1 1.5-44.9zm30.5 0-2.7 18 1.2 45 6.7-34.1z"/>
+    <path d="m179.8 193.5-6.7 34.1 4.8 3.3 29.2-22.8 1-22.9zm-69.2-8.3.8 22.9 29.2 22.8 4.8-3.3-6.6-34.1z" fill="#f6851b" stroke="#f6851b" strokeLinecap="round" strokeLinejoin="round"/>
+    <path fill="#c0ad9e" stroke="#c0ad9e" strokeLinecap="round" strokeLinejoin="round" d="m180.3 262.3.3-9.3-2.5-2.2h-37.7l-2.3 2.2.2 9.3-31.5-14.9 11 9 22.3 15.5h38.3l22.4-15.5 11-9z"/>
+    <path fill="#161616" stroke="#161616" strokeLinecap="round" strokeLinejoin="round" d="m177.9 230.9-4.8-3.3h-27.7l-4.8 3.3-2.5 22.1 2.3-2.2h37.7l2.5 2.2z"/>
+    <path fill="#763d16" stroke="#763d16" strokeLinecap="round" strokeLinejoin="round" d="m278.3 114.2 8.5-40.8-12.7-37.9-96.2 71.4 37 31.3 52.3 15.3 11.6-13.5-5-3.6 8-7.3-6.2-4.8 8-6.1zM31.8 73.4l8.5 40.8-5.4 4 8 6.1-6.1 4.8 8 7.3-5 3.6 11.5 13.5 52.3-15.3 37-31.3-96.2-71.4z"/>
+    <path d="m267.2 153.5-52.3-15.3 15.9 23.9-23.7 46 31.2-.4h46.5zm-163.6-15.3-52.3 15.3-17.4 54.2h46.4l31.1.4-23.6-46zm71 26.4 3.3-57.7 15.2-41.1h-67.5l15 41.1 3.5 57.7 1.2 18.2.1 44.8h27.7l.2-44.8z" fill="#f6851b" stroke="#f6851b" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const PhantomLogo = () => (
+  <svg viewBox="0 0 128 128" className="w-8 h-8">
+    <circle cx="64" cy="64" r="64" fill="#AB9FF2" />
+    <path d="M41.7 49.3c0-12 9.6-21.7 21.5-21.7s21.5 9.7 21.5 21.7v38c0 2.2-1.8 4-4.1 4h-1.5c-2 0-3.8-1.5-4.1-3.5L74 76c-.3-1.8-1.8-3.1-3.6-3.1s-3.3 1.3-3.6 3l-1.1 11.5c-.2 2.1-2.1 3.7-4.2 3.7h-.8c-2.1 0-3.9-1.6-4.2-3.7l-1-11.6c-.3-1.8-1.8-3.1-3.6-3.1s-3.3 1.3-3.6 3.1l-1 11.6c-.3 2.1-2 3.7-4.2 3.7H38c-2.2 0-4-1.8-4-4v-38z" fill="#fff"/>
+  </svg>
+);
 
 export function Web3WalletModal({
   isOpen,
@@ -16,479 +39,209 @@ export function Web3WalletModal({
 }) {
   const navigate = useNavigate();
   const { signInWithWeb3Address } = useAuth() as any;
-  const [activeTab, setActiveTab] = useState<'SELECT' | 'WALLETCONNECT' | 'METAMASK_SANDBOX'>('SELECT');
-  const [connectStep, setConnectStep] = useState<'IDLE' | 'QC_SCANNING' | 'HANDSHAKE' | 'SIGNING' | 'SUCCESS'>('IDLE');
-  const [copied, setCopied] = useState(false);
-  const [logMessages, setLogMessages] = useState<string[]>([]);
-  const [ethereumDetected, setEthereumDetected] = useState(false);
-  const [metaMaskAddress, setMetaMaskAddress] = useState('');
+  
+  const [connectStep, setConnectStep] = useState<'SELECT_WALLET' | 'CONNECTING' | 'ERROR'>('SELECT_WALLET');
+  const [selectedWallet, setSelectedWallet] = useState<WalletProvider | null>(null);
   const [errorText, setErrorText] = useState('');
-  const [selectedWalletType, setSelectedWalletType] = useState('');
-
-  // Generated Realistic Web3 Addresses
-  const CANDIDATE_ADDRESSES = [
-    '0x71C233197ef4E8F8BFE9025114A5C1E7039A3c1',
-    '0xD92C6a7b8eD5369A27FDBDea1fD68fD571C26839',
-    '0x3F2BbC8F34B76B9c67a72F89114A5C1E7039D21B',
-    '0xF4312cA7b5B76B9c67a72F8914A5C1E7039E839C'
+  
+  const WALLETS: { id: WalletProvider; name: string; icon: ReactNode; checkInstalled: () => boolean }[] = [
+    { 
+      id: 'MetaMask', 
+      name: 'MetaMask', 
+      icon: <MetaMaskLogo />,
+      checkInstalled: () => typeof window !== 'undefined' && !!(window as any).ethereum
+    },
+    { 
+      id: 'Phantom', 
+      name: 'Phantom', 
+      icon: <PhantomLogo />,
+      checkInstalled: () => typeof window !== 'undefined' && !!(window as any).phantom?.solana
+    }
   ];
 
-  const wcURI = "wc:8a50c1e3-ecc8-4c80-bbb8-912ab7950c4a@2?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=91aecc7832ef1cbd";
-
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'ethereum' in window) {
-      setEthereumDetected(true);
-    } else {
-      setEthereumDetected(false);
+    if (isOpen) {
+      setConnectStep('SELECT_WALLET');
+      setSelectedWallet(null);
+      setErrorText('');
     }
-  }, []);
+  }, [isOpen]);
 
-  const handleCopyUri = () => {
-    navigator.clipboard.writeText(wcURI);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const addLog = (msg: string) => {
-    setLogMessages(prev => [...prev, `[${new Date().toISOString().slice(11, 19)}] ${msg}`]);
-  };
-
-  // 1. Direct Metamask injection flow
-  const handleMetaMaskConnect = async () => {
+  const handleWalletSelect = async (wallet: WalletProvider) => {
+    setSelectedWallet(wallet);
+    setConnectStep('CONNECTING');
     setErrorText('');
-    setSelectedWalletType('MetaMask');
-    if (typeof window !== 'undefined' && 'ethereum' in window) {
-      try {
-        setConnectStep('HANDSHAKE');
-        addLog("Detecting window.ethereum injection...");
-        // @ts-ignore
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        if (accounts && accounts.length > 0) {
-          addLog(`MetaMask connected address: ${accounts[0]}`);
-          setConnectStep('SIGNING');
-          addLog("Requesting digital personal_sign for authentication...");
-          
-          const signatureChallenge = `Welcome to CEXPRO!\n\nSign this challenge to securely verify your wallet identity.\nTimestamp: ${Date.now()}`;
-          // @ts-ignore
-          await window.ethereum.request({
-            method: 'personal_sign',
-            params: [signatureChallenge, accounts[0]]
-          });
 
-          addLog("Web3 Signature matched securely.");
-          setConnectStep('SUCCESS');
-          setTimeout(async () => {
-            await signInWithWeb3Address(accounts[0], 'MetaMask');
-            onClose();
-            navigate('/trade');
-          }, 1200);
-        }
-      } catch (err: any) {
-        addLog(`Error: ${err.message || 'MetaMask Connection Rejected'}`);
-        setConnectStep('IDLE');
-        setErrorText(err.message || 'Connection request rejected by user.');
+    const isInstalled = WALLETS.find(w => w.id === wallet)?.checkInstalled();
+
+    if (isInstalled) {
+      if (wallet === 'MetaMask') {
+         try {
+           await (window as any).ethereum.request({
+             method: 'wallet_requestPermissions',
+             params: [{ eth_accounts: {} }]
+           });
+           const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+           if (accounts && accounts[0]) {
+             await signInWithWeb3Address(accounts[0], wallet);
+             onClose();
+             navigate('/trade');
+             return;
+           }
+         } catch (err: any) {
+           setErrorText(err.message || 'Connection rejected');
+           setConnectStep('ERROR');
+           return;
+         }
+      } else if (wallet === 'Phantom') {
+         try {
+           const resp = await (window as any).phantom.solana.connect();
+           if (resp.publicKey) {
+             await signInWithWeb3Address(resp.publicKey.toString(), wallet);
+             onClose();
+             navigate('/trade');
+             return;
+           }
+         } catch (err: any) {
+           setErrorText(err.message || 'Connection rejected');
+           setConnectStep('ERROR');
+           return;
+         }
       }
     } else {
-      // Injected extension is missing - open elegant sandbox simulator
-      setActiveTab('METAMASK_SANDBOX');
-      setConnectStep('IDLE');
+       setErrorText(`Please install the ${wallet} extension first.`);
+       setConnectStep('ERROR');
     }
-  };
-
-  // 2. WalletConnect simulation stream
-  const startWalletConnectSimulation = () => {
-    setErrorText('');
-    setActiveTab('WALLETCONNECT');
-    setConnectStep('QC_SCANNING');
-    setLogMessages([]);
-    addLog("WalletConnect Relay Bridge online...");
-    addLog("Awaiting QR Code digital handshake from certified wallet client...");
-  };
-
-  const triggerSimulatedMobileScan = () => {
-    if (connectStep !== 'QC_SCANNING') return;
-    
-    setConnectStep('HANDSHAKE');
-    addLog("WalletConnect QR scan detected on mobile device!");
-    
-    setTimeout(() => {
-      addLog("Handshake proposed. Remote Client: TrustWallet Core iOS (v8.11)");
-      addLog("Matching secure cryptographic keys...");
-      setConnectStep('SIGNING');
-    }, 1200);
-
-    setTimeout(() => {
-      addLog("Awaiting signature approval on secure hardware enclave...");
-      addLog("Personal challenge signed successfully.");
-      setConnectStep('SUCCESS');
-    }, 2800);
-
-    setTimeout(async () => {
-      const mockAddress = CANDIDATE_ADDRESSES[Math.floor(Math.random() * CANDIDATE_ADDRESSES.length)];
-      await signInWithWeb3Address(mockAddress, 'WalletConnect');
-      onClose();
-      navigate('/trade');
-    }, 4000);
-  };
-
-  const handleSandboxConnect = async (customAddress: string) => {
-    setErrorText('');
-    const resolvedAddress = customAddress || CANDIDATE_ADDRESSES[0];
-    if (!resolvedAddress.startsWith('0x') || resolvedAddress.length !== 42) {
-      setErrorText('Please specify a valid 42-character Ethereum address.');
-      return;
-    }
-    
-    setConnectStep('HANDSHAKE');
-    addLog(`Simulating MetaMask Bridge connection for: ${resolvedAddress}`);
-    
-    setTimeout(() => {
-      addLog("Requesting personal_sign signature simulation...");
-      setConnectStep('SIGNING');
-    }, 1000);
-
-    setTimeout(() => {
-      addLog("Signature validated securely by cryptography simulator.");
-      setConnectStep('SUCCESS');
-    }, 2200);
-
-    setTimeout(async () => {
-      await signInWithWeb3Address(resolvedAddress, 'MetaMask');
-      onClose();
-      navigate('/trade');
-    }, 3400);
   };
 
   if (!isOpen) return null;
 
+  const currentWallet = WALLETS.find(w => w.id === selectedWallet);
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        {/* Backdrop overlay */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={() => {
-            if (connectStep !== 'HANDSHAKE' && connectStep !== 'SIGNING') {
+            if (connectStep !== 'CONNECTING') {
               onClose();
             }
           }}
-          className="absolute inset-0 bg-[#0b0c0e]/85 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         />
 
-        {/* Modal Window Container */}
         <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 15 }}
+          initial={{ scale: 0.95, opacity: 0, y: 10 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 15 }}
-          transition={{ type: 'spring', duration: 0.4 }}
-          className="relative bg-[#121318]/95 border border-dark-border rounded-2xl w-full max-w-[500px] z-10 overflow-hidden shadow-2xl shadow-[#10B981]/5 font-sans"
+          exit={{ scale: 0.95, opacity: 0, y: 10 }}
+          transition={{ type: 'spring', duration: 0.3 }}
+          className="relative bg-[#191A1E] rounded-[28px] w-full max-w-[360px] z-10 overflow-hidden shadow-2xl flex flex-col font-sans border border-white/5 box-border"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-white/5 select-none">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-primary-500/10 rounded-lg text-primary-500">
-                <Wallet className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-white font-extrabold text-sm uppercase tracking-wider font-mono">
-                  {activeTab === 'SELECT' ? 'Connect Web3 Node' : 
-                   activeTab === 'WALLETCONNECT' ? 'WalletConnect v2 Tunnel' : 'MetaMask Client'}
-                </h3>
-                <p className="text-[10px] text-dark-text-muted font-mono uppercase tracking-widest mt-0.5">
-                  Secure Cryptographic Authentication
-                </p>
-              </div>
+          <div className="flex items-center justify-between px-4 py-4 border-b border-white/5 select-none relative">
+            <div className="w-8">
+               {connectStep === 'ERROR' && (
+                  <button 
+                    onClick={() => setConnectStep('SELECT_WALLET')}
+                    className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                     <motion.svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8.75 1.75L3.5 7L8.75 12.25" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                     </motion.svg>
+                  </button>
+               )}
             </div>
             
-            {connectStep !== 'HANDSHAKE' && connectStep !== 'SIGNING' && (
-              <button 
-                onClick={onClose}
-                className="p-1.5 rounded-lg text-dark-text-muted hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-
-          {/* Error Banner */}
-          {errorText && (
-            <div className="bg-red-500/10 border-b border-red-500/20 px-5 py-3 text-red-400 text-xs flex items-center gap-2 font-mono">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errorText}</span>
-            </div>
-          )}
-
-          {/* Modal Content */}
-          <div className="p-6">
+            <h2 className="text-white font-semibold text-[16px] mx-auto tracking-tight">
+              {connectStep === 'SELECT_WALLET' ? 'Connect wallet' : selectedWallet}
+            </h2>
             
-            {activeTab === 'SELECT' && (
-              <div className="space-y-4">
-                <p className="text-xs text-dark-text-muted leading-relaxed mb-4">
-                  Establish a secure connection with your Web3 provider. Your private keys never leave your device, and all logins are signed cryptographicaly.
-                </p>
-
-                {/* MetaMask Connector */}
-                <button
-                  onClick={handleMetaMaskConnect}
-                  className="w-full flex items-center justify-between p-4 rounded-xl bg-dark-bg/60 border border-dark-border hover:border-orange-500/40 hover:bg-[#fff]/[0.01] transition-all group cursor-pointer text-left"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center p-2 text-orange-500 shrink-0">
-                      <img 
-                        src="https://raw.githubusercontent.com/MetaMask/brand-resources/master/SVG/metamask-fox.svg" 
-                        alt="MetaMask Logo" 
-                        className="w-7 h-7 object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors">MetaMask Extension</h4>
-                      <p className="text-[10px] text-dark-text-muted font-mono mt-0.5">
-                        {ethereumDetected ? '🟢 DETECTED IN BROWSER' : '⚡ OPEN SANDBOX EMULATOR'}
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-dark-text-muted group-hover:text-white transition-all group-hover:translate-x-1" />
-                </button>
-
-                {/* WalletConnect Connector */}
-                <button
-                  onClick={startWalletConnectSimulation}
-                  className="w-full flex items-center justify-between p-4 rounded-xl bg-dark-bg/60 border border-dark-border hover:border-[#3b99fc]/40 hover:bg-[#fff]/[0.01] transition-all group cursor-pointer text-left"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[#3b99fc]/10 flex items-center justify-center p-1.5 shrink-0">
-                      <img 
-                        src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/svg/walletconnect-logo-horizontal.svg" 
-                        alt="WalletConnect Logo" 
-                        className="w-8 h-8 object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-white group-hover:text-[#3b99fc] transition-colors font-mono">WalletConnect Protocol</h4>
-                      <p className="text-[10px] text-dark-text-muted font-mono mt-0.5">
-                        SUPPORT TRUSTWALLET, LEDGER, COINBASE & ANY MOBILE WALLET
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-dark-text-muted group-hover:text-white transition-all group-hover:translate-x-1" />
-                </button>
-
-                {/* Other Wallets Row Grid */}
-                <div className="grid grid-cols-3 gap-3 pt-2">
-                  <div 
-                    onClick={() => { setSelectedWalletType('Coinbase'); handleMetaMaskConnect(); }}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-dark-bg/40 border border-dark-border hover:border-blue-500/40 transition-colors cursor-pointer group"
-                  >
-                    <div className="w-8 h-8 bg-blue-500/10 rounded-md flex items-center justify-center text-blue-400 mb-2 font-bold font-mono text-[9px]">CB</div>
-                    <span className="text-[10px] text-dark-text-muted font-bold tracking-tight">Coinbase</span>
-                  </div>
-                  <div 
-                    onClick={() => { setSelectedWalletType('TrustWallet'); handleMetaMaskConnect(); }}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-dark-bg/40 border border-dark-border hover:border-emerald-500/40 transition-colors cursor-pointer group"
-                  >
-                    <div className="w-8 h-8 bg-emerald-500/10 rounded-md flex items-center justify-center text-emerald-400 mb-2 font-bold font-mono text-[9px]">TW</div>
-                    <span className="text-[10px] text-dark-text-muted font-bold tracking-tight">Trust Wallet</span>
-                  </div>
-                  <div 
-                    onClick={() => { setSelectedWalletType('Ledger'); handleMetaMaskConnect(); }}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-dark-bg/40 border border-dark-border hover:border-purple-500/40 transition-colors cursor-pointer group"
-                  >
-                    <div className="w-8 h-8 bg-purple-500/10 rounded-md flex items-center justify-center text-purple-400 mb-2 font-bold font-mono text-[9px]">LD</div>
-                    <span className="text-[10px] text-dark-text-muted font-bold tracking-tight">Ledger Adapter</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 bg-primary-500/5 border border-primary-500/10 rounded-xl p-4 mt-6 text-[10px] text-primary-400 font-mono leading-relaxed">
-                  <Cpu className="w-4 h-4 shrink-0 animate-pulse text-primary-400" />
-                  <span>CEXPRO runs standard client verification using Node API tunnels. Your keys remain inside offline enclaves, absolutely safe.</span>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'WALLETCONNECT' && (
-              <div className="flex flex-col items-center">
-                
-                {/* Simulated QR Code Canvas */}
-                {connectStep === 'QC_SCANNING' && (
-                  <div className="flex flex-col items-center w-full">
-                    <p className="text-xs text-dark-text-muted text-center mb-5 max-w-[340px]">
-                      Scan this QR code using your WalletConnect-compatible wallet app (Trust, Metamask, Safe, or Ledger mobile).
-                    </p>
-
-                    <div className="relative p-6 bg-white rounded-2xl border border-dark-border shadow-inner">
-                      {/* Fake stylized web3 barcode code */}
-                      <div className="w-48 h-48 flex items-center justify-center select-none bg-slate-900 overflow-hidden relative rounded-xl border-4 border-emerald-500/20">
-                        {/* Live active scanning tracker line overlay */}
-                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-emerald-400 animate-bounce shadow-[0_0_12px_#34d399] z-10" />
-                        
-                        <div className="grid grid-cols-8 gap-1.5 p-3 w-full h-full opacity-90">
-                          {Array.from({ length: 64 }).map((_, i) => {
-                            const isAnchor = (i < 3 || (i >= 5 && i < 8) || i % 8 < 2);
-                            const fill = (Math.sin(i * 3 + 1) > 0.1 || isAnchor) ? 'bg-[#10B981]' : 'bg-[#111827]';
-                            return (
-                              <div key={i} className={`rounded-sm transition-colors duration-1000 ${fill}`} />
-                            );
-                          })}
-                        </div>
-
-                        {/* Central WalletConnect overlay icon */}
-                        <div className="absolute inset-0 m-auto w-12 h-12 bg-[#121318] border border-white/10 rounded-xl flex items-center justify-center shadow-lg">
-                          <img 
-                            src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/svg/walletconnect-logo-horizontal.svg" 
-                            className="w-8 h-8 object-contain"
-                            alt="WC Logo" 
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Copier & Manual Setup Link */}
-                    <div className="mt-5 flex gap-2 w-full max-w-[320px]">
-                      <button 
-                        onClick={handleCopyUri}
-                        className="flex-1 flex items-center justify-center gap-2 bg-dark-bg border border-dark-border hover:border-white/20 text-xs text-white p-2.5 rounded-lg font-mono font-bold hover:bg-white/[0.01] transition-all cursor-pointer"
-                      >
-                        {copied ? <ClipboardCheck className="w-4 h-4 text-[#10B981]" /> : <Copy className="w-4 h-4 text-dark-text-muted" />}
-                        <span>{copied ? 'URI Copied' : 'Copy Connection URI'}</span>
-                      </button>
-                    </div>
-
-                    <div className="w-full mt-6 flex flex-col gap-2.5">
-                      <button
-                        onClick={triggerSimulatedMobileScan}
-                        className="w-full flex items-center justify-center gap-2.5 bg-emerald-500 hover:bg-white text-[#121317] font-extrabold text-xs py-3.5 rounded-xl transition-all shadow-lg hover:scale-[1.01] active:scale-[0.99] uppercase tracking-wider font-mono cursor-pointer"
-                      >
-                        <Smartphone className="w-4 h-4" />
-                        <span>Simulate Phone Scan (Instant Approval)</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => { setActiveTab('SELECT'); setConnectStep('IDLE'); }}
-                        className="text-[10px] text-dark-text-muted hover:text-white font-mono uppercase tracking-widest text-center mt-2 cursor-pointer transition-colors"
-                      >
-                        ← Back to Connection Options
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Simulated Handshake, Signing, or Success States */}
-                {connectStep !== 'QC_SCANNING' && (
-                  <div className="w-full text-center py-4">
-                    <div className="flex flex-col items-center justify-center mb-6">
-                      {connectStep === 'HANDSHAKE' && (
-                        <div className="relative">
-                          <div className="w-20 h-20 rounded-full bg-primary-500/5 flex items-center justify-center border border-primary-500/20">
-                            <RefreshCw className="w-8 h-8 text-primary-500 animate-spin" />
-                          </div>
-                        </div>
-                      )}
-
-                      {connectStep === 'SIGNING' && (
-                        <div className="relative">
-                          <div className="w-20 h-20 rounded-full bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
-                            <Smartphone className="w-8 h-8 text-orange-400 animate-bounce" />
-                          </div>
-                        </div>
-                      )}
-
-                      {connectStep === 'SUCCESS' && (
-                        <div className="w-20 h-20 rounded-full bg-[#10B981]/15 flex items-center justify-center border border-[#10B981]/30">
-                          <CheckCircle2 className="w-10 h-10 text-[#10B981] animate-pulse" />
-                        </div>
-                      )}
-
-                      <h4 className="text-sm font-extrabold text-white uppercase tracking-wider mt-5 select-none font-mono">
-                        {connectStep === 'HANDSHAKE' && 'Authenticating Channel Handshake'}
-                        {connectStep === 'SIGNING' && 'Signature Challenge requested...'}
-                        {connectStep === 'SUCCESS' && 'Verified Cryptographically!'}
-                      </h4>
-                      <p className="text-[10px] text-dark-text-muted font-mono mt-1 uppercase tracking-widest select-none">
-                        {connectStep === 'HANDSHAKE' && 'Establishing secure WebSocket message tunnel'}
-                        {connectStep === 'SIGNING' && 'Please approve signature on your phone device'}
-                        {connectStep === 'SUCCESS' && 'Secure identity registered to firestore'}
-                      </p>
-                    </div>
-
-                    {/* Console Live Logging Monitor */}
-                    <div className="bg-[#0b0c0e]/80 border border-dark-border p-4 rounded-xl text-left font-mono text-[10px] text-zinc-400 max-h-[160px] overflow-y-auto w-full custom-scroll space-y-1 select-none">
-                      <div className="text-[9px] text-[#10B981] uppercase font-bold tracking-widest pb-1 border-b border-white/5 mb-2 flex items-center gap-1.5">
-                        <Cpu className="w-3 h-3" />
-                        <span>Security Audit Relay Console</span>
-                      </div>
-                      {logMessages.map((log, index) => (
-                        <div key={index} className="leading-relaxed leading-3 font-mono">
-                          {log}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            )}
-
-            {activeTab === 'METAMASK_SANDBOX' && (
-              <div>
-                <p className="text-xs text-dark-text-muted leading-relaxed mb-4">
-                  MetaMask is not present in your browser core sandbox. You may use our sandbox simulator by pasting a real/simulated 42-character Ethereum address to integrate or proceed testing.
-                </p>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-dark-text-muted block text-[10px] font-bold uppercase tracking-wider mb-2 font-mono">Sandbox Account Address</label>
-                    <input 
-                      type="text" 
-                      value={metaMaskAddress}
-                      onChange={(e) => setMetaMaskAddress(e.target.value)}
-                      className="w-full bg-dark-bg/60 border border-dark-border focus:border-orange-500/50 rounded-lg p-3.5 text-xs text-white outline-none transition-colors placeholder-white/10 font-mono"
-                      placeholder="e.g. 0x7179DDe5... (42 letters)"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-2 pt-2">
-                    <p className="text-[9px] text-dark-text-muted font-mono uppercase font-bold tracking-widest mb-1">Preset Demo Web3 Accounts:</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {CANDIDATE_ADDRESSES.map((cand, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setMetaMaskAddress(cand)}
-                          className="text-left p-2.5 bg-dark-bg/40 border border-dark-border rounded-lg text-[9px] font-mono text-zinc-300 hover:border-orange-500/30 truncate cursor-pointer transition-all"
-                        >
-                          {cand.slice(0, 10)}...{cand.slice(-8)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="w-full pt-6 flex flex-col gap-2.5">
-                    <button
-                      onClick={() => handleSandboxConnect(metaMaskAddress)}
-                      className="w-full flex items-center justify-center gap-2.5 bg-orange-500 hover:bg-white text-[#121317] font-extrabold text-xs py-3.5 rounded-xl transition-all shadow-lg hover:scale-[1.01] active:scale-[0.99] uppercase tracking-wider font-mono cursor-pointer border-none"
-                    >
-                      <Cpu className="w-4 h-4" />
-                      <span>Connect Simulated Extension Identity</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => { setActiveTab('SELECT'); setConnectStep('IDLE'); }}
-                      className="text-[10px] text-dark-text-muted hover:text-white font-mono uppercase tracking-widest text-center mt-2 cursor-pointer transition-colors"
-                    >
-                      ← Back to Connection Options
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-            )}
-
+            <button 
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
+          {/* Body */}
+          <div className="p-2">
+            {connectStep === 'SELECT_WALLET' && (
+              <div className="space-y-1">
+                 {WALLETS.map((wallet) => {
+                    const isInstalled = wallet.checkInstalled();
+                    return (
+                      <button
+                        key={wallet.id}
+                        onClick={() => handleWalletSelect(wallet.id)}
+                        className="w-full flex items-center justify-between p-3 rounded-[20px] bg-transparent hover:bg-white/5 transition-colors group cursor-pointer border-none"
+                      >
+                         <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-[14px] bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden p-1 shadow-sm">
+                               {wallet.icon}
+                            </div>
+                            <span className="text-[17px] font-semibold text-white tracking-tight">{wallet.name}</span>
+                         </div>
+                         {isInstalled ? (
+                           <span className="text-[13px] font-medium text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md">Installed</span>
+                         ) : null}
+                      </button>
+                    )
+                 })}
+              </div>
+            )}
+
+            {(connectStep === 'CONNECTING' || connectStep === 'ERROR') && currentWallet && (
+              <div className="flex flex-col items-center justify-center px-4 py-8 relative">
+                 <div className="relative mb-6">
+                    <div className="w-24 h-24 rounded-[28px] border border-white/10 overflow-hidden flex flex-col p-3 shadow-lg bg-white/5 justify-center items-center">
+                       <div className="scale-[1.8]">
+                          {currentWallet.icon}
+                       </div>
+                    </div>
+                    {connectStep === 'CONNECTING' && (
+                       <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#191A1E] rounded-full flex items-center justify-center border-2 border-[#191A1E]">
+                          <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                       </div>
+                    )}
+                    {connectStep === 'ERROR' && (
+                       <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#191A1E] rounded-full flex items-center justify-center border-2 border-[#191A1E]">
+                          <AlertCircle className="w-5 h-5 text-red-500" />
+                       </div>
+                    )}
+                 </div>
+                 
+                 {connectStep === 'CONNECTING' ? (
+                   <>
+                     <h3 className="text-xl font-semibold text-white tracking-tight mb-2">Requesting Connection</h3>
+                     <p className="text-sm text-zinc-400 text-center font-medium">
+                       {currentWallet.checkInstalled() 
+                          ? `Approve the connection in your ${currentWallet.name} extension.`
+                          : `Simulating connection for testing...`}
+                     </p>
+                   </>
+                 ) : (
+                   <>
+                     <h3 className="text-xl font-semibold text-red-400 tracking-tight mb-2">Connection Declined</h3>
+                     <p className="text-sm text-zinc-400 text-center font-medium">
+                       {errorText || "The request was rejected by the user."}
+                     </p>
+                     <button
+                       onClick={() => handleWalletSelect(currentWallet.id)}
+                       className="mt-6 px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-full tracking-tight transition-colors"
+                     >
+                       Try Again
+                     </button>
+                   </>
+                 )}
+              </div>
+            )}
+            
+          </div>
+          
         </motion.div>
       </div>
     </AnimatePresence>

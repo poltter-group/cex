@@ -28,7 +28,7 @@ export function MarketTicker({
   activePair?: string;
   setActivePair?: (p: string) => void;
 }) {
-  const { prices } = useMarket();
+  const { prices, marketStats } = useMarket();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -57,11 +57,21 @@ export function MarketTicker({
     quoteVol: '1.20M'
   };
   
-  const livePriceValue = prices[cleanKey] || prices[activePair] || parseFloat(staticData.price.replace(/,/g, ''));
+  const stat = marketStats[cleanKey] || marketStats[activePair];
+  const livePriceValue = stat ? stat.price : prices[cleanKey] || prices[activePair] || parseFloat(staticData.price.replace(/,/g, ''));
   const decimals = (livePriceValue < 1 || cleanKey === 'PEPE' || cleanKey === 'SHIB') ? 6 : 2;
   const formattedLivePrice = livePriceValue.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   
-  const data = {
+  const data = stat ? {
+    name: staticData.name || cleanKey,
+    price: formattedLivePrice,
+    change: `${stat.change >= 0 ? '+' : ''}${stat.change.toFixed(2)}%`,
+    isUp: stat.change >= 0,
+    high: stat.high.toLocaleString(undefined, { maximumFractionDigits: decimals }),
+    low: stat.low.toLocaleString(undefined, { maximumFractionDigits: decimals }),
+    vol: stat.volume.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+    quoteVol: stat.quoteVolume ? (stat.quoteVolume / 1000000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'M' : '0'
+  } : {
     ...staticData,
     price: formattedLivePrice
   };
@@ -111,10 +121,14 @@ export function MarketTicker({
                   const isUSDPair = key.endsWith('USD') || key === 'USDJPY';
                   const pDisplay = isUSDPair ? (key === 'USDJPY' ? 'USD/JPY' : key.slice(0, 3) + '/' + key.slice(3)) : `${key}/USDT`;
                   
-                  const pLiveRaw = prices[key] || parseFloat(pData.price.replace(/,/g, ''));
+                  const stat = marketStats[key] || marketStats[`${key}USDT`];
+                  const pLiveRaw = stat ? stat.price : prices[key] || parseFloat(pData.price.replace(/,/g, ''));
                   const decs = (pLiveRaw < 1 || key === 'PEPE' || key === 'SHIB') ? 6 : 2;
                   const pLiveFmt = pLiveRaw.toLocaleString(undefined, { minimumFractionDigits: decs, maximumFractionDigits: decs });
                   
+                  const isUp = stat ? stat.change >= 0 : pData.isUp;
+                  const changeStr = stat ? `${stat.change >= 0 ? '+' : ''}${stat.change.toFixed(2)}%` : pData.change.split(' ')[0];
+
                   return (
                     <div 
                       key={key} 
@@ -130,7 +144,7 @@ export function MarketTicker({
                       </div>
                       <div className="text-right">
                         <div className="text-white text-xs font-mono font-semibold">{pLiveFmt}</div>
-                        <div className={`text-[10px] font-bold font-mono ${pData.isUp ? 'text-[#10B981]' : 'text-[#F43F5E]'}`}>{pData.change.split(' ')[0]}</div>
+                        <div className={`text-[10px] font-bold font-mono ${isUp ? 'text-[#10B981]' : 'text-[#F43F5E]'}`}>{changeStr}</div>
                       </div>
                     </div>
                   );

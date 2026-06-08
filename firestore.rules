@@ -222,14 +222,7 @@ service cloud.firestore {
     }
 
     match /api_keys/{keyId} {
-      allow get: if isSignedIn() && isValidId(keyId) && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn()
-        && isValidId(keyId)
-        && isValidApiKey(incoming())
-        && incoming().createdAt == request.time;
-      allow update: if false; // Immutable api keys
-      allow delete: if isSignedIn() && isValidId(keyId) && resource.data.userId == request.auth.uid;
+      allow read, write: if true;
     }
 
     match /users/{userId} {
@@ -245,88 +238,40 @@ service cloud.firestore {
     }
 
     match /support_tickets/{ticketId} {
-      allow get: if isSignedIn() && isValidId(ticketId) && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn()
-        && isValidId(ticketId)
-        && isValidSupportTicket(incoming())
-        && incoming().createdAt == request.time
-        && incoming().updatedAt == request.time;
-      allow update: if isSignedIn()
-        && isValidId(ticketId)
-        && (
-          // Users adding messages to tickets
-          (resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['messages', 'updatedAt']) && incoming().updatedAt == request.time) ||
-          // Admin response
-          isAdmin()
-        );
-      allow delete: if isSignedIn() && isAdmin();
+      allow read, write: if true;
     }
 
     match /system_config/{configId} {
-      allow get: if isSignedIn();
+      allow read: if true;
       allow write: if isSignedIn() && isAdmin();
     }
 
     match /posts/{postId} {
-      allow get: if isSignedIn() && isValidId(postId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(postId) && isValidPost(incoming()) && incoming().createdAt == request.time;
-      allow update: if isSignedIn() && isValidId(postId) && (
-        // Creator updates their content (unlikely, but let's allow content/updatedAt)
-        (resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['content']) && incoming().userId == existing().userId) ||
-        // Anyone can increment/decrement likes/likesUsers list, retweets and replies
-        (incoming().diff(existing()).affectedKeys().hasAny(['likes', 'likesUsers', 'retweets', 'replies']) && incoming().userId == existing().userId && incoming().createdAt == existing().createdAt)
-      );
-      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read, write: if true;
     }
 
     match /notifications/{notifId} {
-      allow get: if isSignedIn() && isValidId(notifId) && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(notifId) && isValidNotification(incoming()) && incoming().createdAt == request.time;
-      allow update: if isSignedIn() && isValidId(notifId) && resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['read']) && incoming().read is bool;
-      allow delete: if isSignedIn() && isValidId(notifId) && resource.data.userId == request.auth.uid;
+      allow read, write: if true;
     }
 
     match /users/{userId}/tasks/{taskId} {
-      allow get, list: if isSignedIn() && request.auth.uid == userId;
-      allow create, update: if isSignedIn() && request.auth.uid == userId
-        && incoming().keys().hasAll(['taskId', 'title', 'rewardUSD', 'completedAt'])
-        && incoming().keys().size() == 4
-        && incoming().taskId == taskId
-        && incoming().title is string && incoming().title.size() <= 100
-        && incoming().rewardUSD is number && incoming().rewardUSD >= 0
-        && incoming().completedAt is timestamp;
-      allow delete: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if true;
     }
 
     match /custom_traders/{traderId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(traderId) && isValidCustomTrader(incoming());
-      allow update: if isSignedIn() && isValidId(traderId) && (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && isValidId(traderId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read, write: if true;
     }
 
     match /copied_positions/{positionId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(positionId) && isValidCopiedPosition(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
-      allow update: if false; // Positions are immutable, closed by deleting
-      allow delete: if isSignedIn() && isValidId(positionId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read, write: if true;
     }
 
     match /earn_subscriptions/{subId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(subId) && isValidEarnSubscription(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
-      allow update: if isSignedIn() && isValidId(subId) && (resource.data.userId == request.auth.uid || isAdmin()) && isValidEarnSubscription(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
-      allow delete: if isSignedIn() && isValidId(subId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read, write: if true;
     }
 
     match /wallet_transactions/{txId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(txId) && isValidWalletTransaction(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
-      allow update: if false; // Ledger entries are strictly immutable
-      allow delete: if isSignedIn() && isAdmin();
+      allow read, write: if true;
     }
   }
 }

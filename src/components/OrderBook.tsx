@@ -39,6 +39,9 @@ export function OrderBook({ activePair = 'BTC' }: { activePair?: string }) {
         };
       });
       setRealOrders(dbOrders);
+    }, (error) => {
+      console.warn("Permission issue or Firestore connection error loading live order book:", error);
+      setRealOrders([]);
     });
     
     return () => unsubscribe();
@@ -47,40 +50,8 @@ export function OrderBook({ activePair = 'BTC' }: { activePair?: string }) {
   const priceColor = Math.random() > 0.5 ? 'text-[#10B981]' : 'text-[#F43F5E]';
   
   const currentVal = currentPrice || initialBase;
-  const generateMockAsks = () => {
-    const list = [];
-    for (let i = 1; i <= 8; i++) {
-      const askPrice = currentVal * (1 + (i * 0.0003));
-      list.push({
-        id: `mock_sell_${i}`,
-        price: askPrice.toFixed(initialBase > 10 ? 2 : 5),
-        amount: (Math.random() * 1.5 + 0.05).toFixed(4),
-        depth: Math.floor(Math.random() * 50) + 10,
-        isReal: false,
-        side: 'Sell'
-      });
-    }
-    return list;
-  };
-
-  const generateMockBids = () => {
-    const list = [];
-    for (let i = 1; i <= 8; i++) {
-      const bidPrice = currentVal * (1 - (i * 0.0003));
-      list.push({
-        id: `mock_buy_${i}`,
-        price: bidPrice.toFixed(initialBase > 10 ? 2 : 5),
-        amount: (Math.random() * 1.5 + 0.05).toFixed(4),
-        depth: Math.floor(Math.random() * 50) + 10,
-        isReal: false,
-        side: 'Buy'
-      });
-    }
-    return list;
-  };
-
-  const mockAsks = generateMockAsks();
-  const mockBids = generateMockBids();
+  const mockAsks: any[] = [];
+  const mockBids: any[] = [];
 
   const displayAsks = [
     ...realOrders.filter(o => o.side === 'Sell'),

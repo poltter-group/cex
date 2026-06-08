@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { TradingDashboard } from './components/TradingDashboard';
 import { Home } from './components/Home';
@@ -11,8 +11,22 @@ import { Profile } from './components/Profile';
 import { AdminPanel } from './components/AdminPanel';
 import { Wallet } from './components/Wallet';
 import { Support } from './components/Support';
+import { useAuth } from './lib/auth-context';
 
-import { AboutPage, FeesPage, TermsPage, PrivacyPage, RiskPage, ContactPage, AmlPage } from './components/InfoPages';
+import { AboutPage, FeesPage, TermsPage, PrivacyPage, RiskPage, ContactPage, AmlPage, CoinInfoPage } from './components/InfoPages';
+
+function ProtectedAdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, profile, loading } = useAuth();
+  
+  if (loading) return null;
+  
+  if (!user || profile?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
 
 export default function App() {
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
@@ -23,13 +37,13 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Helper backward compatibility wrapper
-  const setCurrentView = (v: string) => {
+  const setCurrentView = (v: string, payload?: any) => {
     switch (v) {
       case 'HOME': navigate('/'); break;
-      case 'MARKETS': navigate('/markets'); break;
+      case 'MARKETS': navigate('/markets', payload ? { state: { category: payload } } : undefined); break;
       case 'AUTH': navigate('/auth'); break;
       case 'SPOT': navigate('/trade'); break;
+      case 'INFO': navigate(`/info/${payload?.pair || 'BTCUSDT'}`); break;
       case 'COPY_TRADING': navigate('/copy-trading'); break;
       case 'SQUARE': navigate('/square'); break;
       case 'PROFILE': navigate('/profile'); break;
@@ -52,10 +66,8 @@ export default function App() {
   return (
     <div className="h-[100dvh] w-full bg-dark-bg text-dark-text font-sans selection:bg-primary-500/30 overflow-hidden flex flex-col">
       <Routes>
-        {/* Admin Route - Completely independent layout */}
-        <Route path="/admin/*" element={<AdminPanel />} />
+        <Route path="/admin/*" element={<ProtectedAdminRoute><AdminPanel /></ProtectedAdminRoute>} />
         
-        {/* Main Platform Routes wrapped in standard Layout */}
         <Route path="/*" element={
           <div className="h-full w-full flex flex-col pt-14">
             <Layout 
@@ -71,11 +83,11 @@ export default function App() {
             >
               <Routes>
                 <Route path="/" element={<Home setCurrentView={setCurrentView as any} setAuthMode={setAuthMode} />} />
-                <Route path="/markets" element={<Markets setCurrentView={(v: any) => { if (v === 'SQUARE') setSquareTab('COMMUNITY'); setCurrentView(v); }} />} />
-                <Route path="/auth" element={<Auth mode={authMode} setMode={setAuthMode} setCurrentView={(v: any) => { if (v === 'SQUARE') setSquareTab('COMMUNITY'); setCurrentView(v); }} />} />
+                <Route path="/markets" element={<Markets setCurrentView={(v: string) => { if (v === 'SQUARE') setSquareTab('COMMUNITY'); setCurrentView(v); }} />} />
+                <Route path="/auth" element={<Auth mode={authMode} setMode={setAuthMode} setCurrentView={(v: string) => { if (v === 'SQUARE') setSquareTab('COMMUNITY'); setCurrentView(v); }} />} />
                 <Route path="/trade" element={
                   <TradingDashboard 
-                    setCurrentView={(v: any) => { if (v === 'SQUARE') setSquareTab('COMMUNITY'); setCurrentView(v); }} 
+                    setCurrentView={(v: string) => { if (v === 'SQUARE') setSquareTab('COMMUNITY'); setCurrentView(v); }} 
                     setAuthMode={setAuthMode} 
                     activeTradePair={activeTradePair}
                     setActiveTradePair={setActiveTradePair}
@@ -88,6 +100,7 @@ export default function App() {
                 <Route path="/wallet/*" element={<Wallet />} />
                 <Route path="/support" element={<Support />} />
                 <Route path="/about" element={<AboutPage />} />
+                <Route path="/info/:pair" element={<CoinInfoPage />} />
                 <Route path="/fees" element={<FeesPage />} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />

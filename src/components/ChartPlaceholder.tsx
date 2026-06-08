@@ -562,12 +562,12 @@ export function ChartPlaceholder({ activePair = 'BTC' }: { activePair?: string }
       <div className="h-12 border-b border-white/5 flex items-center px-4 gap-3 text-xs text-dark-text-muted bg-[#08080a] z-10 shrink-0 select-none ">
         <span className="text-white/40 font-bold uppercase text-[10px] tracking-widest shrink-0 mr-1">Time</span>
         
-        <div className="flex bg-[#121216] rounded-lg p-1 border border-white/5">
+        <div className="flex bg-[#121216] rounded p-1 border border-white/5">
           {timeframes.map(tf => (
             <button 
               key={tf} 
               onClick={() => setTimeframe(tf)}
-              className={`transition-all py-1.5 px-3 rounded-md font-bold text-[11px] cursor-pointer ${timeframe === tf ? 'bg-[#2A2B31] text-white ' : 'text-dark-text-muted hover:text-white hover:bg-white/5'}`}
+              className={`transition-all py-1.5 px-3 rounded font-bold text-[11px] cursor-pointer ${timeframe === tf ? 'bg-[#2A2B31] text-white ' : 'text-dark-text-muted hover:text-white hover:bg-white/5'}`}
             >
               {tf}
             </button>
@@ -578,9 +578,9 @@ export function ChartPlaceholder({ activePair = 'BTC' }: { activePair?: string }
         
         {/* Indicators checklist */}
         <span className="text-white/40 font-bold uppercase text-[10px] tracking-widest shrink-0 mr-1">Indicators</span>
-        <div className="flex items-center gap-4 bg-[#121216] rounded-lg p-1.5 px-3 border border-white/5">
+        <div className="flex items-center gap-4 bg-[#121216] rounded p-1.5 px-3 border border-white/5">
           <label className="flex items-center gap-2 cursor-pointer group select-none">
-            <div className={`w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-colors ${showMA7 ? 'bg-[#E91E63]/20 border-[#E91E63]' : 'border-white/20 group-hover:border-white/40'}`}>
+            <div className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center transition-colors ${showMA7 ? 'bg-[#E91E63]/20 border-[#E91E63]' : 'border-white/20 group-hover:border-white/40'}`}>
               {showMA7 && <div className="w-1.5 h-1.5 rounded-sm bg-[#E91E63]"></div>}
             </div>
             <input 
@@ -593,7 +593,7 @@ export function ChartPlaceholder({ activePair = 'BTC' }: { activePair?: string }
           </label>
 
           <label className="flex items-center gap-2 cursor-pointer group select-none">
-            <div className={`w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-colors ${showEMA25 ? 'bg-[#00D1FF]/20 border-[#00D1FF]' : 'border-white/20 group-hover:border-white/40'}`}>
+            <div className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center transition-colors ${showEMA25 ? 'bg-[#00D1FF]/20 border-[#00D1FF]' : 'border-white/20 group-hover:border-white/40'}`}>
               {showEMA25 && <div className="w-1.5 h-1.5 rounded-sm bg-[#00D1FF]"></div>}
             </div>
             <input 
@@ -606,7 +606,7 @@ export function ChartPlaceholder({ activePair = 'BTC' }: { activePair?: string }
           </label>
 
           <label className="flex items-center gap-2 cursor-pointer group select-none">
-            <div className={`w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-colors ${showBB ? 'bg-[#F59E0B]/20 border-[#F59E0B]' : 'border-white/20 group-hover:border-white/40'}`}>
+            <div className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center transition-colors ${showBB ? 'bg-[#F59E0B]/20 border-[#F59E0B]' : 'border-white/20 group-hover:border-white/40'}`}>
               {showBB && <div className="w-1.5 h-1.5 rounded-sm bg-[#F59E0B]"></div>}
             </div>
             <input 
@@ -624,7 +624,7 @@ export function ChartPlaceholder({ activePair = 'BTC' }: { activePair?: string }
         <div className="flex items-center gap-1">
           <button 
             onClick={handleZoomIn}
-            className="text-[11px] font-bold p-1.5 bg-[#121216] hover:bg-[#2A2B31] rounded-lg border border-white/5 transition-colors cursor-pointer text-white shrink-0 group"
+            className="text-[11px] font-bold p-1.5 bg-[#121216] hover:bg-[#2A2B31] rounded border border-white/5 transition-colors cursor-pointer text-white shrink-0 group"
             title="Zoom In"
           >
             <svg className="w-4 h-4 text-dark-text-muted group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -633,7 +633,7 @@ export function ChartPlaceholder({ activePair = 'BTC' }: { activePair?: string }
           </button>
           <button 
             onClick={handleZoomOut}
-            className="text-[11px] font-bold p-1.5 bg-[#121216] hover:bg-[#2A2B31] rounded-lg border border-white/5 transition-colors cursor-pointer text-white shrink-0 group"
+            className="text-[11px] font-bold p-1.5 bg-[#121216] hover:bg-[#2A2B31] rounded border border-white/5 transition-colors cursor-pointer text-white shrink-0 group"
             title="Zoom Out"
           >
             <svg className="w-4 h-4 text-dark-text-muted group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

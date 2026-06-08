@@ -250,14 +250,16 @@ export function OrderEntry({
           <span className="text-dark-text-muted text-xs ml-2 font-semibold shrink-0">{baseAsset}</span>
         </div>
         
-        {/* Percentage Shortcuts */}
-        <div className="flex gap-2 mb-1 justify-between">
-          {[25, 50, 75, 100].map((pct) => (
-            <button
-              key={pct}
-              type="button"
-              className="flex-1 bg-dark-bg/60 hover:bg-dark-surface border border-dark-border/60 text-dark-text-muted hover:text-white text-[10px] py-1.5 rounded transition-colors font-bold"
-              onClick={() => {
+        {/* Percentage Slider Shortcuts */}
+        <div className="relative pt-4 pb-2 px-1">
+          <input 
+             type="range" 
+             min="0" 
+             max="100" 
+             step="1"
+             defaultValue={0}
+             onChange={(e) => {
+                const pct = parseFloat(e.target.value);
                 const orderPrice = orderType === 'Market' ? parseFloat(activePrice) : parseFloat(price || activePrice);
                 if (!orderPrice) return;
                 const baseValue = availableBase * orderPrice;
@@ -270,11 +272,16 @@ export function OrderEntry({
                   setTotal(t.toFixed(2));
                   setAmount((t / orderPrice).toFixed(6));
                 }
-              }}
-            >
-              {pct}%
-            </button>
-          ))}
+             }}
+             className="w-full h-1 bg-dark-surface rounded-lg appearance-none cursor-pointer accent-primary-500"
+          />
+          <div className="flex justify-between text-[9px] text-dark-text-muted mt-2 font-bold px-1 relative">
+            <span className="w-1/4 text-left">0%</span>
+            <span className="w-1/4 text-center">25%</span>
+            <span className="w-1/4 text-center">50%</span>
+            <span className="w-1/4 text-center">75%</span>
+            <span className="w-1/4 text-right">100%</span>
+          </div>
         </div>
         
         <div className="bg-dark-bg rounded border border-dark-border/60 flex items-center px-3 h-10 group focus-within:border-white transition-colors">
@@ -304,26 +311,26 @@ export function OrderEntry({
           {enableTPSL && (
             <div className="mt-3 space-y-2 pt-2.5 border-t border-dark-border/40 animate-fadeIn">
               <div className="bg-dark-bg rounded border border-dark-border flex items-center px-3 h-9 group focus-within:border-white transition-colors">
-                <span className="text-dark-text-muted text-xs w-20 font-medium">Take Profit</span>
+                <span className="text-dark-text-muted text-xs shrink-0 whitespace-nowrap mr-2 font-medium">Take Profit</span>
                 <input 
                   type="number" 
                   value={tpPrice}
                   onChange={(e) => setTpPrice(e.target.value)}
-                  placeholder="Exit price target" 
-                  className="flex-1 bg-transparent text-right outline-none text-xs font-mono text-white" 
+                  placeholder="Exit target" 
+                  className="flex-1 bg-transparent text-right w-full min-w-0 outline-none text-xs font-mono text-white" 
                 />
-                <span className="text-dark-text-muted text-[10px] ml-2 font-mono">USDT</span>
+                <span className="text-dark-text-muted text-[10px] ml-2 font-mono shrink-0">USDT</span>
               </div>
               <div className="bg-dark-bg rounded border border-dark-border flex items-center px-3 h-9 group focus-within:border-white transition-colors">
-                <span className="text-dark-text-muted text-xs w-20 font-medium">Stop Loss</span>
+                <span className="text-dark-text-muted text-xs shrink-0 whitespace-nowrap mr-2 font-medium">Stop Loss</span>
                 <input 
                   type="number" 
                   value={slPrice}
                   onChange={(e) => setSlPrice(e.target.value)}
-                  placeholder="Stop sale limit" 
-                  className="flex-1 bg-transparent text-right outline-none text-xs font-mono text-white" 
+                  placeholder="Stop limit" 
+                  className="flex-1 bg-transparent text-right w-full min-w-0 outline-none text-xs font-mono text-white" 
                 />
-                <span className="text-dark-text-muted text-[10px] ml-2 font-mono">USDT</span>
+                <span className="text-dark-text-muted text-[10px] ml-2 font-mono shrink-0">USDT</span>
               </div>
             </div>
           )}

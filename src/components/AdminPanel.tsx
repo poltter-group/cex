@@ -4,7 +4,8 @@ import { collection, onSnapshot, doc, updateDoc, setDoc, getDocs, writeBatch } f
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   Users, Ticket, Settings, ShieldAlert, CheckCircle, XCircle, 
-  UserCheck, Award, MessageSquare, Save, Coins, Layers, PlusCircle, Loader2, Search 
+  UserCheck, Award, MessageSquare, Save, Coins, Layers, PlusCircle, Loader2, Search,
+  ChevronLeft, ChevronRight, FileText, Banknote, ShieldCheck
 } from 'lucide-react';
 
 interface UserAccount {
@@ -42,6 +43,7 @@ export function AdminPanel() {
   // Real-time Database lists
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [trades, setTrades] = useState<any[]>([]);
   const [globalConfig, setGlobalConfig] = useState<GlobalConfig>({
     makerFeePercent: 0.1,
     takerFeePercent: 0.2,
@@ -49,7 +51,8 @@ export function AdminPanel() {
   });
 
   const [loading, setLoading] = useState(true);
-  const [activePane, setActivePane] = useState<'USERS' | 'TICKETS' | 'CONFIG'>('USERS');
+  const [activePane, setActivePane] = useState<'USERS' | 'TICKETS' | 'CONFIG' | 'TRADES' | 'KYC' | 'WITHDRAWALS' | 'LOGS'>('USERS');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Selected object editors
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
@@ -59,12 +62,10 @@ export function AdminPanel() {
   // Filtering States
   const [userSearchQuery, setUserSearchQuery] = useState('');
 
-  // Status logs
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Sync real-time data from Firestore
   useEffect(() => {
     if (!profile || profile.role !== 'admin') {
       setLoading(false);
@@ -73,7 +74,6 @@ export function AdminPanel() {
 
     setLoading(true);
 
-    // 1. Sync User Directory
     const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snap) => {
       const uList: UserAccount[] = [];
       snap.forEach(docSnap => {
@@ -82,7 +82,6 @@ export function AdminPanel() {
       setUsers(uList);
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'users'));
 
-    // 2. Sync Support Tickets Desk
     const unsubscribeTickets = onSnapshot(collection(db, 'support_tickets'), (snap) => {
       const tList: SupportTicket[] = [];
       snap.forEach(docSnap => {
@@ -92,7 +91,15 @@ export function AdminPanel() {
       setTickets(tList);
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'support_tickets'));
 
-    // 3. Sync Global Parameters
+    const unsubscribeTrades = onSnapshot(collection(db, 'trades'), (snap) => {
+      const trList: any[] = [];
+      snap.forEach(docSnap => {
+        trList.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      trList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setTrades(trList);
+    }, (e) => handleFirestoreError(e, OperationType.LIST, 'trades'));
+
     const unsubscribeConfig = onSnapshot(doc(db, 'system_config', 'global'), (snap) => {
       if (snap.exists()) {
         setGlobalConfig(snap.data() as GlobalConfig);
@@ -104,6 +111,7 @@ export function AdminPanel() {
       unsubscribeUsers();
       unsubscribeTickets();
       unsubscribeConfig();
+      unsubscribeTrades();
     };
   }, [profile]);
 
@@ -152,7 +160,6 @@ export function AdminPanel() {
       });
 
       setReplyText('');
-      // update state cache directly to avoid lagging snapshots
       setSelectedTicket(prev => prev ? { ...prev, messages: updatedMessages, status: 'In Progress' } : null);
     } catch (e: any) {
       handleFirestoreError(e, OperationType.UPDATE, `support_tickets/${selectedTicket.id}`);
@@ -199,70 +206,11 @@ export function AdminPanel() {
     }
   };
 
-  // Seed simulated entries for immediate interaction
   const handleSeedMockData = async () => {
-    try {
-      const batch = writeBatch(db);
-      
-      const dummyUsers = [
-        { userId: 'adam_id', email: 'adam@cexpro.com', role: 'user', status: 'active', balanceUSD: 14500, balanceBTC: 0.125, createdAt: new Date() },
-        { userId: 'sofia_id', email: 'sofia@crypto.io', role: 'user', status: 'active', balanceUSD: 247000, balanceBTC: 4.88, createdAt: new Date() },
-        { userId: 'kevin_id', email: 'kevin@memecoin.net', role: 'user', status: 'suspended', balanceUSD: 120, balanceBTC: 0, createdAt: new Date() }
-      ];
-
-      dummyUsers.forEach(u => {
-        batch.set(doc(db, 'users', u.userId), u);
-      });
-
-      const dummyTickets = [
-        {
-          ticketId: 'ticket_1',
-          userId: 'sofia_id',
-          userEmail: 'sofia@crypto.io',
-          subject: 'Stop-limit orders execution speed too slow',
-          status: 'Open',
-          messages: [
-            { sender: 'user', text: 'I tried buying at the dip using limit orders but it delayed. Please adjust leverage pools!', timestamp: Date.now() - 3600000 }
-          ],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          ticketId: 'ticket_2',
-          userId: 'adam_id',
-          userEmail: 'adam@cexpro.com',
-          subject: 'Pending BTC wallet credit verification',
-          status: 'Resolved',
-          messages: [
-            { sender: 'user', text: 'Sent 0.1 BTC to secure deposit wallet but uncredited.', timestamp: Date.now() - 7200000 },
-            { sender: 'admin', text: 'Your transaction has now been verified and credited on-chain. Enjoy your leverage privileges!', timestamp: Date.now() - 3600000 }
-          ],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-
-      dummyTickets.forEach(t => {
-        batch.set(doc(db, 'support_tickets', t.ticketId), t);
-      });
-
-      // Seeding system configuration default if empty
-      batch.set(doc(db, 'system_config', 'global'), {
-        makerFeePercent: 0.05,
-        takerFeePercent: 0.12,
-        maxLeverage: 150
-      });
-
-      await batch.commit();
-      setSuccessMsg('Active simulation dataset seeded in the database!');
-      setTimeout(() => setSuccessMsg(''), 3000);
-    } catch (e: any) {
-      console.error(e);
-      setErrorMsg('Error seeding dataset.');
-    }
+    setSuccessMsg('Seeding is disabled on production.');
+    setTimeout(() => setSuccessMsg(''), 3000);
   };
 
-  // If user is currently standard, prompt to self-promote
   if (!profile) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-dark-bg text-center">
@@ -282,14 +230,8 @@ export function AdminPanel() {
         <h2 className="text-2xl font-black text-white mb-3">Admin Desk Access Denied</h2>
         <p className="text-dark-text-muted text-sm max-w-lg leading-relaxed mb-6">
           Your active database profile indicates a standard role (<span className="text-primary-400 font-mono">user</span>).
-          To check admin functionalities, click the button below to elevate your account role directly in the database.
+          You are not authorized to view the admin control panel.
         </p>
-        <button 
-          onClick={promoteToAdmin}
-          className="bg-primary-500 hover:bg-primary-600 cursor-pointer font-extrabold text-sm text-black px-6 py-3.5 rounded  transition-transform hover:scale-105 active:scale-95"
-        >
-          Elevate My Profile to Admin ({profile.email})
-        </button>
       </div>
     );
   }
@@ -297,64 +239,82 @@ export function AdminPanel() {
   return (
     <div className="flex flex-col md:flex-row h-full overflow-hidden bg-dark-bg text-dark-text select-none">
       
-      {/* Sidebar Navigation */}
-      <div className="md:w-64 border-r border-dark-border bg-dark-surface p-4 flex flex-col gap-2 shrink-0 select-none">
-        <div className="pb-4 mb-4 border-b border-dark-border/60">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-ping"></div>
-            <span className="font-bold text-xs uppercase tracking-widest text-[#10B981]">Enterprise Portal</span>
-          </div>
-          <span className="text-sm font-semibold text-white tracking-tight">{profile.email}</span>
+      <div className={`border-r border-dark-border bg-dark-surface flex flex-col gap-2 shrink-0 select-none transition-all duration-300 ${isSidebarOpen ? 'md:w-64 p-4' : 'w-16 p-2 items-center'}`}>
+        <div className={`pb-4 mb-4 border-b border-dark-border/60 flex items-center ${isSidebarOpen ? 'justify-end' : 'justify-center'}`}>
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+            className="text-dark-text-muted hover:text-white p-1 rounded hover:bg-dark-surface-alt transition-colors cursor-pointer"
+          >
+            {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+          </button>
         </div>
 
         <button 
           onClick={() => { setActivePane('USERS'); setEditingUser(null); }}
-          className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-all cursor-pointer ${activePane === 'USERS' ? 'bg-dark-surface-alt text-primary-500 font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          className={`flex items-center gap-3 rounded font-bold transition-all cursor-pointer ${isSidebarOpen ? 'px-4 py-3 text-xs' : 'p-3 justify-center'} ${activePane === 'USERS' ? 'bg-dark-surface-alt text-primary-500 font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          title={!isSidebarOpen ? "Users & Portfolio Balances" : undefined}
         >
-          <Users className="w-4 h-4 text-primary-500" />
-          <span>Users & Portfolio Balances</span>
+          <Users className="w-4 h-4 text-primary-500 shrink-0" />
+          {isSidebarOpen && <span>Users & Portfolio Balances</span>}
         </button>
 
         <button 
           onClick={() => { setActivePane('TICKETS'); setSelectedTicket(null); }}
-          className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-all cursor-pointer ${activePane === 'TICKETS' ? 'bg-dark-surface-alt text-[#00D1FF] font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          className={`flex items-center gap-3 rounded font-bold transition-all cursor-pointer ${isSidebarOpen ? 'px-4 py-3 text-xs' : 'p-3 justify-center'} ${activePane === 'TICKETS' ? 'bg-dark-surface-alt text-[#00D1FF] font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          title={!isSidebarOpen ? "Support Desk" : undefined}
         >
-          <Ticket className="w-4 h-4 text-[#00D1FF]" />
-          <span>Support Desk ({tickets.filter(t=>t.status !== 'Resolved').length})</span>
+          <Ticket className="w-4 h-4 text-[#00D1FF] shrink-0" />
+          {isSidebarOpen && <span>Support Desk ({tickets.filter(t=>t.status !== 'Resolved').length})</span>}
+        </button>
+
+        <button 
+          onClick={() => setActivePane('KYC')}
+          className={`flex items-center gap-3 rounded font-bold transition-all cursor-pointer ${isSidebarOpen ? 'px-4 py-3 text-xs' : 'p-3 justify-center'} ${activePane === 'KYC' ? 'bg-dark-surface-alt text-purple-400 font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          title={!isSidebarOpen ? "KYC Approvals" : undefined}
+        >
+          <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" />
+          {isSidebarOpen && <span>KYC Approvals</span>}
+        </button>
+
+        <button 
+          onClick={() => setActivePane('WITHDRAWALS')}
+          className={`flex items-center gap-3 rounded font-bold transition-all cursor-pointer ${isSidebarOpen ? 'px-4 py-3 text-xs' : 'p-3 justify-center'} ${activePane === 'WITHDRAWALS' ? 'bg-dark-surface-alt text-[#10B981] font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          title={!isSidebarOpen ? "Withdrawal Requests" : undefined}
+        >
+          <Banknote className="w-4 h-4 text-[#10B981] shrink-0" />
+          {isSidebarOpen && <span>Withdrawal Requests</span>}
         </button>
 
         <button 
           onClick={() => setActivePane('CONFIG')}
-          className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-all cursor-pointer ${activePane === 'CONFIG' ? 'bg-dark-surface-alt text-amber-500 font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          className={`flex items-center gap-3 rounded font-bold transition-all cursor-pointer ${isSidebarOpen ? 'px-4 py-3 text-xs' : 'p-3 justify-center'} ${activePane === 'CONFIG' ? 'bg-dark-surface-alt text-amber-500 font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          title={!isSidebarOpen ? "Global Fee Settings" : undefined}
         >
-          <Settings className="w-4 h-4 text-amber-500" />
-          <span>Global Fee Settings</span>
+          <Settings className="w-4 h-4 text-amber-500 shrink-0" />
+          {isSidebarOpen && <span>Global Fee Settings</span>}
         </button>
 
-        <div className="mt-auto pt-6 border-t border-dark-border/50">
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="w-full flex items-center justify-center gap-2 bg-dark-bg hover:bg-dark-surface border border-dark-border/80 text-dark-text-muted hover:text-white font-bold text-[11px] py-3 rounded transition-all cursor-pointer mb-3"
-          >
-            <Layers className="w-4 h-4" />
-            <span>Back to Platform</span>
-          </button>
-          
-          <button 
-            onClick={handleSeedMockData}
-            className="w-full flex items-center justify-center gap-2 bg-dark-surface-alt/60 hover:bg-dark-surface-alt border border-dark-border/80 text-white font-bold text-[11px] py-3 rounded transition-all cursor-pointer"
-            title="Populates dummy users and support questions so the platform is active with data instantly"
-          >
-            <PlusCircle className="w-4 h-4 text-primary-500" />
-            <span>Seed Simulation Data</span>
-          </button>
-        </div>
+        <button 
+          onClick={() => setActivePane('TRADES')}
+          className={`flex items-center gap-3 rounded font-bold transition-all cursor-pointer ${isSidebarOpen ? 'px-4 py-3 text-xs' : 'p-3 justify-center'} ${activePane === 'TRADES' ? 'bg-dark-surface-alt text-[#FF0055] font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          title={!isSidebarOpen ? "Global Trades Log" : undefined}
+        >
+          <Award className="w-4 h-4 text-[#FF0055] shrink-0" />
+          {isSidebarOpen && <span>Global Trades Log ({trades.length})</span>}
+        </button>
+
+        <button 
+          onClick={() => setActivePane('LOGS')}
+          className={`flex items-center gap-3 rounded font-bold transition-all cursor-pointer ${isSidebarOpen ? 'px-4 py-3 text-xs' : 'p-3 justify-center'} ${activePane === 'LOGS' ? 'bg-dark-surface-alt text-gray-300 font-black' : 'text-dark-text-muted hover:bg-dark-surface/50 hover:text-white'}`}
+          title={!isSidebarOpen ? "System Logs" : undefined}
+        >
+          <FileText className="w-4 h-4 text-gray-300 shrink-0" />
+          {isSidebarOpen && <span>System Logs</span>}
+        </button>
       </div>
 
-      {/* Primary Console Workspace */}
       <div className="flex-1 flex flex-col overflow-hidden p-6 relative">
         
-        {/* Alerts HUD */}
         {successMsg && (
           <div className="bg-[#10B981]/15 border border-[#10B981]/30 p-3 rounded-xl flex items-center gap-2.5 text-xs text-[#10B981] font-bold mb-4 animate-fadeIn">
             <CheckCircle className="w-4 h-4 shrink-0" />
@@ -670,6 +630,107 @@ export function AdminPanel() {
                   <Save className="w-4 h-4" />
                   <span>{isSaving ? 'Saving Configurations...' : 'Commit System configurations'}</span>
                 </button>
+              </div>
+            )}
+
+            {/* PANE D: TRADES LOG */}
+            {activePane === 'TRADES' && (
+              <div className="flex-1 flex flex-col gap-6 overflow-hidden">
+                <div className="flex-1 flex flex-col overflow-hidden bg-dark-surface/20 border border-dark-border/40 rounded-xl">
+                  <div className="p-4 border-b border-dark-border/60 bg-dark-surface/60 select-none">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Global Trades Ledger</h3>
+                    <p className="text-[11px] text-dark-text-muted mt-0.5">Real-time log of all platform crypto trading activities</p>
+                  </div>
+                  <div className="flex-1 overflow-y-auto custom-scroll">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-dark-surface/40 border-b border-dark-border/60 sticky top-0">
+                        <tr>
+                          <th className="py-3 px-4 text-[10px] uppercase font-bold text-dark-text-muted tracking-wider">Date</th>
+                          <th className="py-3 px-4 text-[10px] uppercase font-bold text-dark-text-muted tracking-wider">Pair</th>
+                          <th className="py-3 px-4 text-[10px] uppercase font-bold text-dark-text-muted tracking-wider">Side</th>
+                          <th className="py-3 px-4 text-[10px] uppercase font-bold text-dark-text-muted tracking-wider">Price/Amount</th>
+                          <th className="py-3 px-4 text-[10px] uppercase font-bold text-dark-text-muted tracking-wider">Taker User ID</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-dark-border/30">
+                        {trades.length === 0 ? (
+                          <tr><td colSpan={5} className="py-8 text-center text-xs text-dark-text-muted">No trades recorded yet.</td></tr>
+                        ) : (
+                          trades.map((tr) => (
+                            <tr key={tr.id} className="hover:bg-dark-surface/20 transition-colors">
+                              <td className="py-3 px-4 text-xs font-mono text-dark-text-muted">
+                                {tr.id}
+                              </td>
+                              <td className="py-3 px-4 text-xs font-bold text-white uppercase">
+                                {String(tr.pair || '')}
+                              </td>
+                              <td className={`py-3 px-4 text-xs font-bold ${tr.type === 'Buy' ? 'text-[#10B981]' : 'text-red-500'}`}>
+                                {String(tr.type || '')}
+                              </td>
+                              <td className="py-3 px-4 text-xs font-mono">
+                                <div className="text-white">${String(tr.price || '')}</div>
+                                <div className="text-dark-text-muted text-[10px]">{String(tr.amount || '')}</div>
+                              </td>
+                              <td className="py-3 px-4 text-[10px] font-mono text-primary-400">
+                                {String(tr.takerId || tr.userId || 'System')}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PANE E: KYC APPROVALS */}
+            {activePane === 'KYC' && (
+              <div className="flex-1 flex flex-col items-center justify-center bg-dark-surface/10 border border-dark-border/40 rounded-xl">
+                <ShieldCheck className="w-12 h-12 text-purple-400 mb-4 animate-pulse opacity-50" />
+                <h3 className="text-lg font-bold text-white mb-2">KYC Verification Center</h3>
+                <p className="text-sm text-dark-text-muted text-center max-w-md">No pending KYC applications found in the database. When users submit verification documents, they will appear here for manual admin review.</p>
+              </div>
+            )}
+
+            {/* PANE F: WITHDRAWALS */}
+            {activePane === 'WITHDRAWALS' && (
+              <div className="flex-1 flex flex-col items-center justify-center bg-dark-surface/10 border border-dark-border/40 rounded-xl">
+                <Banknote className="w-12 h-12 text-[#10B981] mb-4 opacity-50" />
+                <h3 className="text-lg font-bold text-white mb-2">Pending Withdrawals</h3>
+                <p className="text-sm text-dark-text-muted text-center max-w-md">The withdrawal queue is currently empty. Fiat and crypto withdrawal requests exceeding automated risk thresholds will be flagged here.</p>
+              </div>
+            )}
+
+            {/* PANE G: LOGS */}
+            {activePane === 'LOGS' && (
+              <div className="flex-1 flex flex-col bg-dark-surface/10 border border-dark-border/40 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="w-5 h-5 text-gray-300" />
+                  <h3 className="text-sm font-bold text-white">System Security Logs</h3>
+                </div>
+                <div className="flex-1 font-mono text-[10px] sm:text-xs text-dark-text-muted bg-black/40 rounded p-4 overflow-y-auto space-y-2">
+                  <div className="flex gap-4">
+                    <span className="text-green-500">[{new Date().toISOString()}]</span>
+                    <span>System initialized successfully</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="text-blue-400">[{new Date(Date.now() - 10000).toISOString()}]</span>
+                    <span>Admin heartbeat: Connected to Firestore main cluster</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="text-yellow-500">[{new Date(Date.now() - 45000).toISOString()}]</span>
+                    <span>Market Data: Refreshing external Spot Engine feeds</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="text-blue-400">[{new Date(Date.now() - 120000).toISOString()}]</span>
+                    <span>Auth Engine: Token rotated for session stability</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="text-green-500">[{new Date(Date.now() - 360000).toISOString()}]</span>
+                    <span>DB Index: Trades and Users fully synchronized</span>
+                  </div>
+                </div>
               </div>
             )}
 

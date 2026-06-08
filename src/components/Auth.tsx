@@ -1,8 +1,9 @@
-import { MonitorSmartphone, QrCode, Loader2, Wallet } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
 import { useState } from 'react';
 import { useAuth } from '../lib/auth-context';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { Web3WalletModal } from './Web3WalletModal';
 
 export function Auth({ 
   mode, 
@@ -13,11 +14,12 @@ export function Auth({
   setMode: (m: 'LOGIN' | 'REGISTER') => void;
   setCurrentView: (v: 'HOME' | 'MARKETS' | 'AUTH' | 'SPOT') => void;
 }) {
-  const { signInWithGoogle, signInWithWeb3 } = useAuth();
+  const { signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isWeb3ModalOpen, setIsWeb3ModalOpen] = useState(false);
 
   const handleAuth = async () => {
     setError('');
@@ -30,7 +32,11 @@ export function Auth({
       }
       setCurrentView('SPOT');
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      if (err.code === 'auth/admin-restricted-operation' || err.message?.includes('admin-restricted')) {
+         setError('Account creation is restricted to administrators. Please use Google Sign-in or connect a Web3 Wallet to enter as a guest trader.');
+      } else {
+         setError(err.message || 'Authentication failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -45,15 +51,6 @@ export function Auth({
     }
   };
 
-  const handleWeb3SignIn = async () => {
-    try {
-      await signInWithWeb3();
-      setCurrentView('SPOT');
-    } catch (err: any) {
-      setError("Web3 Wallet connection failed or was rejected.");
-    }
-  };
-
   return (
     <div className="w-full flex flex-1 bg-dark-bg text-dark-text justify-center pt-24 pb-16 relative overflow-hidden">
       
@@ -65,10 +62,6 @@ export function Auth({
       <div className="flex flex-col items-center justify-center z-10 w-full max-w-[450px] px-6 relative">
         <div className="w-full bg-dark-surface/60 backdrop-blur-md p-10 rounded-2xl border border-dark-border relative shadow-2xl">
            
-           <div className="absolute top-6 right-6 cursor-pointer hover:bg-white/5 p-2 rounded-lg transition-colors group" title="Log in with QR Code">
-             <QrCode className="w-5 h-5 text-dark-text-muted group-hover:text-white transition-colors" />
-           </div>
-
            <div className="flex justify-start mb-8 select-none">
              <span className="font-extrabold text-3xl tracking-tighter text-white">CEX<span className="text-primary-500">PRO</span></span>
            </div>
@@ -136,31 +129,33 @@ export function Auth({
                 className="w-full flex items-center justify-center gap-3 bg-dark-bg/40 border border-dark-border hover:border-white/30 py-3 rounded-lg transition-colors text-white cursor-pointer"
                 onClick={handleGoogleSignIn}
               >
-                <MonitorSmartphone className="w-4 h-4 text-dark-text-muted"/> 
+                <span className="w-4 h-4 flex items-center justify-center text-dark-text-muted">G</span>
                 <span>Continue with Google</span>
               </button>
               <button 
-                className="w-full flex items-center justify-center gap-3 bg-dark-bg/40 border border-dark-border hover:border-primary-500 py-3 rounded-lg transition-colors text-white hover:text-primary-500 group cursor-pointer"
-                onClick={handleWeb3SignIn}
+                className="w-full flex items-center justify-center gap-3 bg-dark-bg/40 border border-dark-border hover:border-blue-500/50 hover:bg-blue-500/5 py-3 rounded-lg transition-colors text-white group cursor-pointer"
+                onClick={() => setIsWeb3ModalOpen(true)}
               >
-                <Wallet className="w-4 h-4 text-dark-text-muted group-hover:text-primary-500 transition-colors"/> 
-                <span>Connect Web3 Wallet</span>
+                <Wallet className="w-4 h-4 text-dark-text-muted group-hover:text-blue-400 transition-colors"/> 
+                <span className="group-hover:text-blue-400 transition-colors">Connect Web3 Wallet</span>
               </button>
            </div>
         </div>
 
         <div className="text-center mt-8">
            <span className="text-xs text-dark-text-muted font-bold font-mono uppercase tracking-wider">
-             {mode === 'LOGIN' ? "Require desk entry?" : "Already possess identity?"}
+             REQUIRE DESK ENTRY?
            </span>
            <button 
              className="ml-2 text-primary-500 hover:text-white transition-colors text-xs font-extrabold font-mono uppercase tracking-widest underline underline-offset-2 cursor-pointer" 
              onClick={() => setMode(mode === 'LOGIN' ? 'REGISTER' : 'LOGIN')}
            >
-             {mode === 'LOGIN' ? 'Register' : 'Log In'}
+             {mode === 'LOGIN' ? 'REGISTER' : 'LOG IN'}
            </button>
         </div>
       </div>
+
+      <Web3WalletModal isOpen={isWeb3ModalOpen} onClose={() => setIsWeb3ModalOpen(false)} />
     </div>
   );
 }

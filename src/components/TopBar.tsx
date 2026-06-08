@@ -37,35 +37,11 @@ const SQUARE_ITEMS = [
 
 const TRADE_ITEMS = [
   {
-    icon: <Coins className="w-4 h-4 text-primary-500" />,
-    name: "Crypto",
+    name: "Crypto Spot",
     desc: "Trade BTC, ETH, SOL and primary crypto assets",
     defaultPair: "BTC",
-    bg: "bg-primary-500/10",
     action: (setCurrentView: any, setActiveTradePair: any) => {
       setActiveTradePair?.("BTC");
-      setCurrentView("SPOT");
-    }
-  },
-  {
-    icon: <LineChart className="w-4 h-4 text-[#10B981]" />,
-    name: "Forex Spot (XAUUSD etc)",
-    desc: "Trade raw metals like Gold/Silver forex spot",
-    defaultPair: "XAUUSD",
-    bg: "bg-emerald-500/10",
-    action: (setCurrentView: any, setActiveTradePair: any) => {
-      setActiveTradePair?.("XAUUSD");
-      setCurrentView("SPOT");
-    }
-  },
-  {
-    icon: <Gift className="w-4 h-4 text-orange-400 animate-pulse" />,
-    name: "Memecoin",
-    desc: "Trade leading community memetic coins on leverage",
-    defaultPair: "DOGE",
-    bg: "bg-orange-500/10",
-    action: (setCurrentView: any, setActiveTradePair: any) => {
-      setActiveTradePair?.("DOGE");
       setCurrentView("SPOT");
     }
   }
@@ -218,14 +194,22 @@ export function TopBar({
   const notificationsDropdownRef = useRef<HTMLDivElement>(null);
 
   const SEARCH_ITEMS = [
-    { name: "BTC / USDT", category: "Trade Forex Spot", keywords: "btc bitcoin usdt", view: "SPOT", pair: "BTC" },
-    { name: "ETH / USDT", category: "Trade Forex Spot", keywords: "eth ethereum usdt", view: "SPOT", pair: "ETH" },
-    { name: "SOL / USDT", category: "Trade Forex Spot", keywords: "sol solana usdt", view: "SPOT", pair: "SOL" },
-    { name: "XAU / USD (Gold Forex Spot)", category: "Trade Forex Spot", keywords: "gold metal xau xauusd spot forex spot", view: "SPOT", pair: "XAUUSD" },
-    { name: "My Secure Wallet Dashboard", category: "Wallet", keywords: "wallet balance assets deposit withdraw transfer swap convert logs history desk", view: "WALLET" },
-    { name: "API & Security Identity Profiler", category: "Profile", keywords: "profile keys safety api configure limit password security settings 2fa credentials", view: "PROFILE" },
-    { name: "Cexpro Community Square Forums", category: "Square", keywords: "square forum posts community news academy blockchain blog feed article expert", view: "SQUARE" },
-    { name: "Live Chat Help Support", category: "Support", keywords: "help direct manual dispatcher ticket queries support team real conversation desk", view: "SUPPORT" },
+    { name: "BTC / USDT", category: "Trading Pairs", keywords: "btc bitcoin usdt trade pair", view: "SPOT", pair: "BTC" },
+    { name: "ETH / USDT", category: "Trading Pairs", keywords: "eth ethereum usdt trade pair", view: "SPOT", pair: "ETH" },
+    { name: "SOL / USDT", category: "Trading Pairs", keywords: "sol solana usdt trade pair", view: "SPOT", pair: "SOL" },
+    { name: "XAU / USD (Gold)", category: "Trading Pairs", keywords: "gold metal xau xauusd spot forex", view: "SPOT", pair: "XAUUSD" },
+    { name: "DOGE / USDT", category: "Trading Pairs", keywords: "doge dogecoin meme trade pair usdt", view: "SPOT", pair: "DOGE" },
+    
+    { name: "Latest Market News", category: "News Articles", keywords: "news article market updates update crypto latest", view: "SQUARE", squareTab: "NEWS" },
+    { name: "Cexpro Blog & Analysis", category: "News Articles", keywords: "blog post analysis market update reading square", view: "SQUARE", squareTab: "BLOG" },
+    
+    { name: "How to deposit crypto?", category: "Help Topics", keywords: "help guide faq deposit crypto fund wallet", view: "SUPPORT" },
+    { name: "Account Security & 2FA", category: "Help Topics", keywords: "help guide faq security 2fa two factor google auth", view: "PROFILE" },
+    { name: "Using the Spot Trading Desk", category: "Help Topics", keywords: "help tutorial spot trade trading desk order limit market", view: "SQUARE", squareTab: "ACADEMY" },
+    
+    { name: "Wallet & Balances", category: "Dashboards", keywords: "wallet balance assets deposit withdraw transfer swap convert logs history desk", view: "WALLET" },
+    { name: "API & Security Profiler", category: "Dashboards", keywords: "profile keys safety api configure limit password security settings credentials", view: "PROFILE" },
+    { name: "Live Support Chat", category: "Support", keywords: "help direct manual dispatcher ticket queries support team real conversation desk", view: "SUPPORT" },
   ];
 
   const filteredSearchItems = SEARCH_ITEMS.filter(item => 
@@ -235,6 +219,13 @@ export function TopBar({
   );
 
   useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault();
+        setIsSearchOpen(true);
+      }
+    }
+    
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsMoreOpen(false);
@@ -253,8 +244,10 @@ export function TopBar({
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [dropdownRef, tradeDropdownRef, squareDropdownRef, searchDropdownRef, notificationsDropdownRef]);
 
@@ -278,12 +271,40 @@ export function TopBar({
           </button>
 
           {/* 3. Trade Navigation Tab (Direct Button) */}
-          <button
-            onClick={() => setCurrentView('SPOT')}
-            className={`px-4 py-2 rounded transition-all ${currentView === '/trade' || currentView === 'SPOT' ? 'bg-dark-surface-alt text-white font-semibold' : 'hover:bg-white/5 hover:text-white'}`}
-          >
-            Trade
-          </button>
+          <div className="relative" ref={tradeDropdownRef}>
+            <button
+              onClick={() => setIsTradeOpen(!isTradeOpen)}
+              className={`px-4 py-2 rounded flex items-center gap-1 transition-all ${currentView === '/trade' || currentView === 'SPOT' ? 'bg-dark-surface-alt text-white font-semibold' : 'hover:bg-white/5 hover:text-white'}`}
+            >
+              Trade
+              <ChevronDown className={`w-3 h-3 transition-transform ${isTradeOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <AnimatePresence>
+              {isTradeOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-0 mt-2 w-72 bg-[#161619] border border-dark-border rounded-xl p-2 z-50 shadow-2xl"
+                >
+                  {TRADE_ITEMS.map((item, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        item.action(setCurrentView, setActiveTradePair);
+                        setIsTradeOpen(false);
+                      }}
+                      className="flex flex-col gap-1 p-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group"
+                    >
+                      <div className="text-white font-bold text-sm group-hover:text-primary-500 transition-colors">{item.name}</div>
+                      <div className="text-xs text-dark-text-muted leading-relaxed">{item.desc}</div>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* 4. Copy Trading Navigation Tab */}
           <button
@@ -347,7 +368,7 @@ export function TopBar({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search hot pairs, desks, or utilities..."
+                    placeholder="Search hot pairs, desks, or utilities (Cmd/Ctrl + K)..."
                     className="w-full bg-transparent text-xs text-white outline-none placeholder-dark-text-muted font-mono"
                     autoFocus
                   />
@@ -369,6 +390,9 @@ export function TopBar({
                         onClick={() => {
                           if (item.view === 'SPOT' && item.pair) {
                             setActiveTradePair?.(item.pair);
+                          }
+                          if (item.view === 'SQUARE' && (item as any).squareTab) {
+                            setSquareTab?.((item as any).squareTab);
                           }
                           setCurrentView(item.view);
                           setIsSearchOpen(false);

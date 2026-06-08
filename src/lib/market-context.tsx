@@ -5,20 +5,46 @@ import { useAuth } from './auth-context';
 
 type MarketPrices = Record<string, number>;
 
+export interface MarketStat {
+  price: number;
+  change: number;
+  high: number;
+  low: number;
+  volume: number;
+  quoteVolume: number;
+}
+
+type MarketStats = Record<string, MarketStat>;
+
 interface MarketContextType {
   prices: MarketPrices;
+  marketStats: MarketStats;
 }
 
 const defaultPrices: MarketPrices = {
   'BTC': 77298.50, 'ETH': 2117.94, 'SOL': 145.20, 'BNB': 612.40, 'AVAX': 34.85, 'XRP': 1.14, 'ADA': 0.62,
   'XAUUSD': 4508.01, 'XAGUSD': 75.41, 'EURUSD': 1.15873, 'GBPUSD': 1.34215, 'USDJPY': 149.82,
-  'PEPE': 0.00001543, 'DOGE': 0.41240, 'SHIB': 0.00002514, 'WIF': 3.1250, 'BANANA': 0.01301, 'KEVIN': 0.0007324
+  'PEPE': 0.00001543, 'DOGE': 0.41240, 'SHIB': 0.00002514, 'WIF': 3.1250, 'BANANA': 0.01301, 'KEVIN': 0.0007324,
+  'APE': 1.45, 'BLUR': 0.52, 'MAGIC': 0.88, 'HYPE': 61.411
 };
 
-const MarketContext = createContext<MarketContextType>({ prices: defaultPrices });
+const defaultStats: MarketStats = Object.keys(defaultPrices).reduce((acc, key) => {
+  acc[key] = {
+    price: defaultPrices[key],
+    change: 0,
+    high: defaultPrices[key] * 1.05,
+    low: defaultPrices[key] * 0.95,
+    volume: 0,
+    quoteVolume: 0
+  };
+  return acc;
+}, {} as MarketStats);
+
+const MarketContext = createContext<MarketContextType>({ prices: defaultPrices, marketStats: defaultStats });
 
 export function MarketProvider({ children }: { children: React.ReactNode }) {
   const [prices, setPrices] = useState<MarketPrices>(defaultPrices);
+  const [marketStats, setMarketStats] = useState<MarketStats>(defaultStats);
   const { user, profile, updateBalance, updateAssetBalance } = useAuth();
   const [openOrders, setOpenOrders] = useState<any[]>([]);
 
@@ -38,8 +64,32 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
               // We match our active pairs. E.g. BTCUSDT -> BTC
               if (ticker.s.endsWith('USDT')) {
                 const asset = ticker.s.replace('USDT', '');
-                if (next[asset] !== undefined) {
+                if (next[asset] !== undefined || ['BTC', 'ETH', 'SOL', 'DOGE', 'PEPE', 'SHIB', 'WIF', 'AVAX', 'BNB', 'BANANA', 'XRP', 'ADA', 'APE', 'BLUR', 'MAGIC', 'HYPE'].includes(asset)) {
                   next[asset] = parseFloat(ticker.c);
+                  updated = true;
+                }
+              }
+            });
+            
+            return updated ? next : prev;
+          });
+          
+          setMarketStats(prev => {
+            const next = { ...prev };
+            let updated = false;
+            
+            data.forEach(ticker => {
+              if (ticker.s.endsWith('USDT')) {
+                const asset = ticker.s.replace('USDT', '');
+                if (next[asset] !== undefined || ['BTC', 'ETH', 'SOL', 'DOGE', 'PEPE', 'SHIB', 'WIF', 'AVAX', 'BNB', 'BANANA', 'XRP', 'ADA', 'APE', 'BLUR', 'MAGIC', 'HYPE'].includes(asset)) {
+                  next[asset] = {
+                    price: parseFloat(ticker.c),
+                    change: parseFloat(ticker.P),
+                    high: parseFloat(ticker.h),
+                    low: parseFloat(ticker.l),
+                    volume: parseFloat(ticker.v),
+                    quoteVolume: parseFloat(ticker.q)
+                  };
                   updated = true;
                 }
               }
@@ -137,7 +187,7 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
   }, [prices, openOrders, user]);
 
   return (
-    <MarketContext.Provider value={{ prices }}>
+    <MarketContext.Provider value={{ prices, marketStats }}>
       {children}
     </MarketContext.Provider>
   );

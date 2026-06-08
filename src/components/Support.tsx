@@ -66,7 +66,7 @@ export function Support() {
         {
           id: 'welcome-2',
           sender: 'bot',
-          text: "I am your Spot Liquidity and Security specialist. I can assist with simulated sweeping deposits, 2FA queries, API keys, trading pairs, or support tickets. How can I help you today?",
+          text: "I am your Spot Liquidity and Security specialist. I can assist with deposits, 2FA queries, API keys, trading pairs, or support tickets. How can I help you today?",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -96,7 +96,7 @@ export function Support() {
       if (queryLower.includes('meme') || queryLower.includes('banana') || queryLower.includes('kevin')) {
         botResponseText = "CEXPRO features trending community memecoins such as $BANANA or KEVIN in our Spot and Onchain dashboards! Access the 'Markets' tab and view 'Onchain' tokens to trade them instantly with 0% maker promotional fees.";
       } else if (queryLower.includes('deposit') || queryLower.includes('withdraw') || queryLower.includes('wallet') || queryLower.includes('balance') || queryLower.includes('sweep')) {
-        botResponseText = "On-chain deposits and withdrawals can be initiated natively from the new 'Wallet' page, now accessible in the top navigation bar. You can generate custom ERC20/TRC20 deposit addresses QR Codes, process simulated deposits, or validate withdrawal addresses instantly.";
+        botResponseText = "On-chain deposits and withdrawals can be initiated natively from the new 'Wallet' page, now accessible in the top navigation bar. You can generate custom ERC20/TRC20 deposit addresses QR Codes, process deposits, or validate withdrawal addresses instantly.";
       } else if (queryLower.includes('buy') || queryLower.includes('sell') || queryLower.includes('order') || queryLower.includes('spot')) {
         botResponseText = "Buying or selling custom assets is managed entirely inside the 'Trade' view. Standard Limit & Market orders are matched instantly. Account balances are updated in Firestore automatically.";
       } else if (queryLower.includes('security') || queryLower.includes('2fa') || queryLower.includes('otp')) {
